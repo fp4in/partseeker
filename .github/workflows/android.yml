@@ -22,6 +22,12 @@ jobs:
           node-version: 20
           cache: npm
 
+      - name: Diagnostics
+        run: |
+          node -v
+          npm -v
+          npx cap --version || true
+
       - name: Install dependencies
         run: npm ci
 
@@ -29,7 +35,21 @@ jobs:
         run: npm run build
 
       - name: Sync Capacitor (Android)
-        run: npx cap sync android
+        run: |
+          set +e
+          out=$(npx cap sync android --verbose 2>&1)
+          code=$?
+          echo "$out"
+          {
+            echo '### cap sync output (exit '"$code"')';
+            echo '```';
+            echo "$out";
+            echo '```';
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ $code -ne 0 ]; then
+            echo "::error::cap sync failed (exit $code): $(echo "$out" | tail -8 | tr '\n' ' | ')"
+          fi
+          exit $code
 
       - name: Setup JDK 21
         uses: actions/setup-java@v4
@@ -46,8 +66,21 @@ jobs:
       - name: Build debug APK
         working-directory: android
         run: |
+          set +e
           chmod +x ./gradlew
-          ./gradlew assembleDebug --no-daemon --stacktrace
+          out=$(./gradlew assembleDebug --no-daemon --stacktrace 2>&1)
+          code=$?
+          echo "$out"
+          {
+            echo '### gradle output (exit '"$code"')';
+            echo '```';
+            echo "$out" | tail -120;
+            echo '```';
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ $code -ne 0 ]; then
+            echo "::error::gradle build failed (exit $code): $(echo "$out" | grep -iE 'error|exception|failed' | tail -6 | tr '\n' ' | ')"
+          fi
+          exit $code
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
