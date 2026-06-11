@@ -1,0 +1,179 @@
+/* -------------------------------------------------------------
+   PARTSEEKER — Motion layer
+   Частицы · 3D-tilt · scroll-reveal · загрузчик · переходы
+   Только transform/opacity → нацелено на 60 fps.
+   ------------------------------------------------------------- */
+
+/* ---- Particle field (hero) ---- */
+.particle-field {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;            /* под контентом hero (.search-hero > * = z-index 1) */
+  pointer-events: none;  /* клики проходят к поиску; мышь читаем на родителе */
+  opacity: 0.9;
+}
+
+/* ---- 3D tilt card ---- */
+.tilt-glare {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 3;
+  mix-blend-mode: soft-light;
+  will-change: opacity, background;
+}
+/* контент карточки приподнимается над бликом в 3D-пространстве */
+.tilt-content { transform: translateZ(40px); }
+
+/* обёртка карточки магазина в горизонтальной карусели */
+.shop-snippet-wrap {
+  flex: 0 0 290px;
+  scroll-snap-align: start;
+}
+.shop-snippet-wrap .shop-snippet-card {
+  width: 100%;
+  height: 100%;
+}
+
+/* ---- Page loader ---- */
+.page-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(60% 60% at 50% 40%, hsla(258, 70%, 22%, 0.55) 0%, transparent 70%),
+    var(--bg-space);
+}
+.page-loader-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+.page-loader-icon {
+  color: var(--accent);
+  filter: drop-shadow(0 0 18px var(--accent-glow));
+  display: flex;
+}
+.page-loader-brand {
+  font-family: var(--font-heading);
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  background: var(--grad-text);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.page-loader-bar {
+  width: 180px;
+  height: 3px;
+  border-radius: 4px;
+  background: hsla(220, 22%, 40%, 0.25);
+  overflow: hidden;
+}
+.page-loader-bar-fill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform-origin: left center;
+  background: var(--grad-accent);
+  box-shadow: 0 0 12px var(--accent-glow);
+}
+
+/* ---- Lazy chunk fallback (кабинеты) ---- */
+.lazy-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 50vh;
+}
+.lazy-fallback .spin-loader {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 3px solid hsla(220, 22%, 50%, 0.25);
+  border-top-color: var(--accent);
+  box-shadow: 0 0 16px var(--accent-glow);
+}
+
+/* ---- Reveal: запасное состояние, если JS/ScrollTrigger не отработал ----
+   GSAP сам ставит начальную непрозрачность; этот фолбэк гарантирует,
+   что без анимации контент всё равно виден. */
+.no-js [data-reveal] { opacity: 1 !important; transform: none !important; }
+
+/* hero-канва не должна перехватывать выделение текста */
+.search-hero { isolation: isolate; }
+
+@media (prefers-reduced-motion: reduce) {
+  .particle-field { opacity: 0.5; }
+  .tilt-glare { display: none; }
+  [data-reveal] { opacity: 1 !important; transform: none !important; }
+}
+
+/* ============================================================
+   Mobile / Capacitor — safe-area, тост, share, тач-полировка
+   ============================================================ */
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+}
+
+/* Учитываем вырез/жесты по краям экрана */
+.header-container {
+  padding-left: calc(20px + var(--safe-left));
+  padding-right: calc(20px + var(--safe-right));
+}
+.app-header { padding-top: var(--safe-top); }
+.site-footer { padding-bottom: calc(28px + var(--safe-bottom)); }
+.main-content {
+  padding-left: var(--safe-left);
+  padding-right: var(--safe-right);
+}
+
+/* Кнопка «Поделиться» */
+.share-btn {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Тост уведомления (например, «ссылка скопирована») */
+.app-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(24px + var(--safe-bottom));
+  transform: translateX(-50%);
+  z-index: 9998;
+  padding: 12px 20px;
+  border-radius: 30px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur) var(--glass-saturate);
+  -webkit-backdrop-filter: var(--glass-blur) var(--glass-saturate);
+  border: 1px solid var(--border-glow);
+  box-shadow: var(--shadow-lg), var(--shadow-glow-accent);
+  animation: toastIn 0.3s var(--ease-spring);
+}
+@keyframes toastIn {
+  from { opacity: 0; transform: translate(-50%, 16px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+
+/* Тач-устройства: убираем hover-«липкость» и подсветку тапа */
+@media (hover: none) and (pointer: coarse) {
+  * { -webkit-tap-highlight-color: transparent; }
+  .tilt-glare { display: none; }
+}

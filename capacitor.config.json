@@ -1,0 +1,25 @@
+{
+  "appId": "tj.partseeker.app",
+  "appName": "PARTSEEKER",
+  "webDir": "dist",
+  "backgroundColor": "#0b0d14",
+  "android": {
+    "backgroundColor": "#0b0d14"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1500,
+      "launchAutoHide": false,
+      "backgroundColor": "#0b0d14",
+      "showSpinner": false,
+      "androidScaleType": "CENTER_CROP",
+      "splashFullScreen": true,
+      "splashImmersive": false
+    },
+    "StatusBar": {
+      "overlaysWebView": false,
+      "style": "DARK",
+      "backgroundColor": "#0b0d14"
+    }
+  }
+}
