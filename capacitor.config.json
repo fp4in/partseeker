@@ -3,6 +3,10 @@
   "appName": "PARTSEEKER",
   "webDir": "dist",
   "backgroundColor": "#0b0d14",
+  "server": {
+    "url": "https://fp4in.github.io/partseeker/",
+    "cleartext": false
+  },
   "android": {
     "backgroundColor": "#0b0d14"
   },
