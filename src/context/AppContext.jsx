@@ -292,7 +292,31 @@ const CAT_IMG = {
   'cat-maintenance': photo('1619767886558-efdc259cde1a')
 };
 const catImg = (cat) => CAT_IMG[cat] || photo('1552656967-7a0991a13906');
-const mkPart = (p) => ({ oem_numbers: [], cross_numbers: [], applicable_vehicles: [], is_verified: true, image_url: catImg(p.category_id), ...p });
+
+// Своё релевантное фото для КАЖДОЙ детали (плейсхолдер по ключевым словам,
+// loremflickr — реальные стоковые фото). lock=номер делает фото постоянным.
+// Когда продавец загрузит своё фото — оно перекроет этот плейсхолдер.
+const stock = (tags, lock) => `https://loremflickr.com/600/600/${tags}?lock=${lock}`;
+const PART_PHOTO = {
+  'part-1': stock('oil,filter', 11),        'part-2': stock('oil,filter,engine', 12),
+  'part-3': stock('air,filter,car', 13),    'part-4': stock('cabin,filter', 14),
+  'part-5': stock('engine,mount', 15),      'part-6': stock('timing,belt', 16),
+  'part-7': stock('brake,pads', 17),        'part-8': stock('brake,pads,disc', 18),
+  'part-9': stock('brake,disc,rotor', 19),  'part-10': stock('car,suspension', 20),
+  'part-11': stock('shock,absorber', 21),   'part-12': stock('suspension,arm', 22),
+  'part-13': stock('steering,tie,rod', 23), 'part-14': stock('steering,rod', 24),
+  'part-15': stock('car,clutch', 25),       'part-16': stock('cv,joint,axle', 26),
+  'part-17': stock('car,battery', 27),      'part-18': stock('car,headlight,bulb', 28),
+  'part-19': stock('alternator', 29),       'part-20': stock('car,radiator', 30),
+  'part-21': stock('thermostat,engine', 31),'part-22': stock('water,pump,car', 32),
+  'part-23': stock('exhaust,muffler', 33),  'part-24': stock('oxygen,sensor', 34),
+  'part-25': stock('windshield,wiper', 35), 'part-26': stock('car,mirror', 36),
+  'part-27': stock('fuel,pump', 37),        'part-28': stock('fuel,filter', 38),
+  'part-29': stock('spark,plug', 39),       'part-30': stock('ignition,coil', 40),
+  'part-31': stock('motor,oil', 41),        'part-32': stock('coolant,antifreeze', 42),
+  'part-33': stock('brake,fluid', 43),
+};
+const mkPart = (p) => ({ oem_numbers: [], cross_numbers: [], applicable_vehicles: [], is_verified: true, image_url: PART_PHOTO[p.id] || catImg(p.category_id), ...p });
 
 const INITIAL_PARTS = [
   // ---- Фильтры ----
@@ -578,7 +602,7 @@ const INITIAL_SEARCH_LOGS = [
 ];
 
 // Bump this when the seed data schema changes to auto-reset old localStorage caches.
-const DATA_VERSION = '2026.06-tj-2';
+const DATA_VERSION = '2026.06-tj-3';
 
 const loadState = (key, fallback) => {
   try {

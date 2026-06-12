@@ -27,9 +27,15 @@ const SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240' vi
 
 export const PLACEHOLDER_IMG = 'data:image/svg+xml,' + encodeURIComponent(SVG);
 
-// onError handler — swaps to placeholder once and stops further error loops.
+// Надёжное «общее» фото автозапчастей (Unsplash CDN) — промежуточный фолбэк,
+// если конкретное фото детали не загрузилось: лучше показать реальную деталь,
+// чем сразу схематичный SVG.
+const RELIABLE_FALLBACK = 'https://images.unsplash.com/photo-1552656967-7a0991a13906?w=400&auto=format&fit=crop&q=60';
+
+// onError handler — двухступенчатый фолбэк: конкретное фото → надёжное фото
+// автозапчасти → брендированный SVG. Защищён от циклов ошибок.
 export const onImgError = (e) => {
-  if (e.target.dataset.fallback) return;
-  e.target.dataset.fallback = '1';
-  e.target.src = PLACEHOLDER_IMG;
+  const el = e.target;
+  if (!el.dataset.fb1) { el.dataset.fb1 = '1'; el.src = RELIABLE_FALLBACK; return; }
+  if (!el.dataset.fb2) { el.dataset.fb2 = '1'; el.src = PLACEHOLDER_IMG; }
 };
