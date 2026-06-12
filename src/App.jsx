@@ -9,7 +9,7 @@ import PageLoader from './components/motion/PageLoader';
 const PartnerDashboard = lazy(() => import('./components/PartnerDashboard'));
 const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
 import { PartnerLoginModal, AdminLoginModal } from './components/AuthModals';
-import { initBackButton, registerBack, syncStatusBar, hideSplash } from './lib/native';
+import { initBackButton, registerBack, syncStatusBar, hideSplash, initKeyboard, watchNetwork, haptic, isNative } from './lib/native';
 import { LANGS } from './i18n';
 import { getPage } from './lib/pages';
 import {
@@ -124,9 +124,18 @@ function App() {
   const [showPartnerLogin, setShowPartnerLogin] = useState(false);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [infoPage, setInfoPage] = useState(null);
+  const [toast, setToast] = useState(null);
+
+  const toastTimer = useRef(null);
+  const showToast = (msg) => {
+    setToast(msg);
+    clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 2200);
+  };
 
   // Hidden admin triggers: #admin hash, Ctrl+Shift+A, 5 quick logo clicks
   const logoClicks = useRef([]);
+  const lastBackAtHome = useRef(0);
 
   useEffect(() => {
     const checkHash = () => {
@@ -169,6 +178,40 @@ function App() {
     }, 100);
     return unregister;
   }, [showAdminLogin, showPartnerLogin, infoPage]);
+
+  // Native: на главном экране «Назад» — двойное нажатие для выхода (низкий
+  // приоритет, срабатывает только если экран/модалки не перехватили).
+  useEffect(() => {
+    const unregister = registerBack(() => {
+      const now = Date.now();
+      if (now - lastBackAtHome.current < 2000) return false; // 2-е нажатие → выход
+      lastBackAtHome.current = now;
+      showToast(t('app.exitHint'));
+      haptic('light');
+      return true;
+    }, -10);
+    return unregister;
+  }, [t]);
+
+  // Native: клавиатура (класс kb-open на <html> при открытии)
+  useEffect(() => {
+    let cleanup = () => {};
+    initKeyboard().then((c) => { cleanup = c; });
+    return () => cleanup();
+  }, []);
+
+  // Сеть: показываем тост при потере/восстановлении соединения
+  useEffect(() => {
+    let first = true;
+    let cleanup = () => {};
+    watchNetwork((connected) => {
+      if (first) { first = false; if (connected) return; }
+      showToast(connected ? t('app.online') : t('app.offline'));
+      if (isNative) haptic(connected ? 'light' : 'medium');
+    }).then((c) => { cleanup = c; });
+    return () => cleanup();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleLogoClick = () => {
     const now = Date.now();
@@ -214,18 +257,18 @@ function App() {
               </span>
             )}
 
-            <button className="icon-btn" onClick={toggleTheme} title={theme === 'dark' ? t('theme.toLight') : t('theme.toDark')}>
+            <button className="icon-btn" onClick={() => { haptic('light'); toggleTheme(); }} title={theme === 'dark' ? t('theme.toLight') : t('theme.toDark')}>
               {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
             </button>
 
             <LanguageSwitch />
 
             {isLoggedIn ? (
-              <button className="btn-ghost-login" onClick={logout}>
+              <button className="btn-ghost-login" onClick={() => { haptic('medium'); logout(); }}>
                 <LogOut size={16} /> <span className="hide-mobile">{t('btn.logout')}</span>
               </button>
             ) : (
-              <button className="btn-ghost-login" onClick={() => setShowPartnerLogin(true)}>
+              <button className="btn-ghost-login" onClick={() => { haptic('light'); setShowPartnerLogin(true); }}>
                 <LogIn size={16} /> <span className="hide-mobile">{t('btn.partnerLogin')}</span>
               </button>
             )}
@@ -257,6 +300,20 @@ function App() {
       {showPartnerLogin && <PartnerLoginModal onClose={() => setShowPartnerLogin(false)} />}
       {showAdminLogin && <AdminLoginModal onClose={() => { setShowAdminLogin(false); if (window.location.hash) window.location.hash = ''; }} />}
       <InfoModal pageKey={infoPage} onClose={() => setInfoPage(null)} />
+
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            className="app-toast"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 16 }}
+            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+          >
+            {toast}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

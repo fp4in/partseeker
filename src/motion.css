@@ -139,6 +139,76 @@
   padding-right: var(--safe-right);
 }
 
+/* Узкий экран: хедер должен помещаться целиком, иначе бренд распирает
+   ряд и кнопки (тема/язык/вход) уезжают за правый край и срезаются
+   overflow-x:hidden. Ужимаем бренд, отступы и контролы. */
+@media (max-width: 640px) {
+  .header-container {
+    padding: 12px calc(12px + var(--safe-right)) 12px calc(12px + var(--safe-left));
+    gap: 8px;
+  }
+  .brand {
+    font-size: 1.1rem;
+    gap: 7px;
+    min-width: 0;            /* позволяет бренду ужиматься, а не распирать ряд */
+  }
+  .brand > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .brand .logo-icon { width: 22px; height: 22px; flex-shrink: 0; }
+  .header-actions { gap: 6px; flex-shrink: 0; }
+  .icon-btn { width: 36px; height: 36px; }
+  .lang-trigger { height: 36px; padding: 0 9px; }
+  .btn-ghost-login { height: 36px; padding: 0 10px; }
+}
+
+/* ============================================================
+   Адаптив под любой телефон (узкие экраны)
+   ============================================================ */
+
+/* Телефоны и узкие планшеты */
+@media (max-width: 600px) {
+  .main-content { padding: 20px 14px; }
+
+  .search-hero { padding: 40px 16px; margin-bottom: 26px; }
+  .search-hero-title { font-size: clamp(1.6rem, 8vw, 2.2rem); }
+  .search-hero-subtitle { font-size: 0.98rem; margin-bottom: 26px; }
+
+  /* Поисковая строка: кнопка не должна выпирать */
+  .search-box-container { padding: 6px 6px 6px 16px; }
+  .search-btn { padding: 11px 18px; font-size: 0.95rem; }
+  .search-input { font-size: 1rem; }
+
+  .selector-card { padding: 20px; }
+  .section-title { font-size: 1.25rem; }
+
+  /* Карточки/таблицы/модалки — внутренние отступы поменьше */
+  .glass-panel { border-radius: var(--radius-sm); }
+  .part-header-panel { padding: 20px; }
+  .modal-content { padding: 22px; max-height: 88vh; }
+  .modal-content[style] { max-width: 100% !important; }
+  .offers-table th, .offers-table td { padding: 10px 12px; }
+
+  /* Ряд переключения вида (Назад + поиск) — в столбик, поиск на всю ширину */
+  form { min-width: 0; }
+}
+
+/* Очень узкие телефоны (≈320–360px) */
+@media (max-width: 360px) {
+  .categories-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
+  .search-hero-title { font-size: 1.5rem; }
+  .brand > span { max-width: 42vw; }
+  .search-btn span { display: none; }   /* оставляем только иконку лупы */
+}
+
+/* Когда открыта экранная клавиатура (нативная) — прячем «тяжёлый» низ,
+   чтобы поле ввода не перекрывалось и вёрстка не прыгала */
+.kb-open .site-footer { display: none; }
+.kb-open .search-hero::before,
+.kb-open .search-hero::after { display: none; }
+
 /* Кнопка «Поделиться» */
 .share-btn {
   width: 34px;

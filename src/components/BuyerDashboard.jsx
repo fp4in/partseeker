@@ -14,7 +14,7 @@ import {
   Cpu, Disc, Activity, Compass, Shuffle, Filter, Lightbulb,
   Thermometer, Wind, Layout, Fuel, Flame, Droplets, Share2
 } from 'lucide-react';
-import { registerBack, haptic, shareContent } from '../lib/native';
+import { registerBack, haptic, shareContent, hideKeyboard } from '../lib/native';
 
 const CATEGORY_ICONS = {
   'cat-engine': Cpu, 'cat-brakes': Disc, 'cat-suspension': Activity, 'cat-steering': Compass,
@@ -115,6 +115,7 @@ export default function BuyerDashboard() {
 
   const goResults = () => {
     haptic('light');
+    hideKeyboard();
     setShowSuggestions(false);
     setCurrentView('results');
     setSelectedBrands([]); setSelectedShops([]); setPriceMin(''); setPriceMax('');

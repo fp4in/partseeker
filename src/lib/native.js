@@ -6,6 +6,8 @@ import { Share } from '@capacitor/share';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { SplashScreen } from '@capacitor/splash-screen';
 import { App } from '@capacitor/app';
+import { Keyboard } from '@capacitor/keyboard';
+import { Network } from '@capacitor/network';
 
 export const isNative = Capacitor.isNativePlatform();
 export const platform = Capacitor.getPlatform();
@@ -81,4 +83,44 @@ export async function initBackButton() {
     App.exitApp();
   });
   return () => handle.remove();
+}
+
+/* ---- Клавиатура (Android/iOS) ---- */
+export async function hideKeyboard() {
+  if (!isNative) return;
+  try { await Keyboard.hide(); } catch { /* ignore */ }
+}
+
+// При открытии клавиатуры добавляем класс на <html> — можно поджать
+// фон/футер, чтобы поле ввода не перекрывалось. Возвращает cleanup.
+export async function initKeyboard() {
+  if (!isNative) return () => {};
+  try {
+    const show = await Keyboard.addListener('keyboardWillShow', () => {
+      document.documentElement.classList.add('kb-open');
+    });
+    const hide = await Keyboard.addListener('keyboardWillHide', () => {
+      document.documentElement.classList.remove('kb-open');
+    });
+    return () => { show.remove(); hide.remove(); document.documentElement.classList.remove('kb-open'); };
+  } catch { return () => {}; }
+}
+
+/* ---- Сеть: следим за онлайн/оффлайн ---- */
+// onChange(connected:boolean) вызывается при каждой смене. Возвращает cleanup.
+export async function watchNetwork(onChange) {
+  if (!isNative) {
+    if (typeof window === 'undefined') return () => {};
+    const on = () => onChange(true), off = () => onChange(false);
+    window.addEventListener('online', on);
+    window.addEventListener('offline', off);
+    onChange(navigator.onLine !== false);
+    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); };
+  }
+  try {
+    const status = await Network.getStatus();
+    onChange(status.connected);
+    const h = await Network.addListener('networkStatusChange', (s) => onChange(s.connected));
+    return () => h.remove();
+  } catch { return () => {}; }
 }

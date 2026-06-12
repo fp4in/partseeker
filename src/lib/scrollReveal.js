@@ -43,33 +43,46 @@ export function useScrollReveal(scopeRef, deps = []) {
       }
     };
 
+    let safety = 0;
     const ctx = gsap.context(() => {
       // начальное скрытое состояние сразу (без вспышки контента)
       items.forEach((node) => gsap.set(node, fromVars(node)));
 
-      // группируем по контейнерам, чтобы соседние карточки выходили каскадом
-      ScrollTrigger.batch(items, {
-        start: 'top 88%',
-        once: true,
-        onEnter: (batch) => {
-          gsap.to(batch, {
-            opacity: 1,
-            x: 0,
-            y: 0,
-            scale: 1,
-            duration: 0.85,
-            ease: 'power3.out',
-            stagger: 0.08,
-            delay: (i, t) => parseFloat(t.getAttribute('data-reveal-delay')) || 0,
-            overwrite: true,
-          });
-        },
+      const reveal = (batch) => gsap.to(batch, {
+        opacity: 1,
+        x: 0,
+        y: 0,
+        scale: 1,
+        duration: 0.85,
+        ease: 'power3.out',
+        stagger: 0.08,
+        delay: (i, t) => parseFloat(t.getAttribute('data-reveal-delay')) || 0,
+        overwrite: true,
       });
 
+      // группируем по контейнерам, чтобы соседние карточки выходили каскадом
+      ScrollTrigger.batch(items, { start: 'top 88%', once: true, onEnter: reveal });
+
       ScrollTrigger.refresh();
+
+      // Страховка для мобильного WebView: внутри анимируемого контейнера
+      // ScrollTrigger иногда меряет позиции неверно и контент остаётся
+      // невидимым. Через момент принудительно показываем всё, что в зоне
+      // видимости и ещё скрыто — лучше показать, чем «сломанная» страница.
+      safety = window.setTimeout(() => {
+        const stuck = [];
+        items.forEach((node) => {
+          if (parseFloat(getComputedStyle(node).opacity) < 0.05) {
+            const r = node.getBoundingClientRect();
+            if (r.top < window.innerHeight && r.bottom > 0) stuck.push(node);
+          }
+        });
+        if (stuck.length) reveal(stuck);
+        ScrollTrigger.refresh();
+      }, 700);
     }, scopeRef);
 
-    return () => ctx.revert();
+    return () => { clearTimeout(safety); ctx.revert(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
 }
