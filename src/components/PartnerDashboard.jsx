@@ -1,8 +1,8 @@
 import React, { useState, useContext, useRef } from 'react';
 import { AppContext } from '../context/AppContext';
-import * as XLSX from 'xlsx';
-import Papa from 'papaparse';
-import { 
+// xlsx (~380 КБ) и papaparse грузятся динамически только при загрузке
+// прайса — чтобы не утяжелять основной бандл кабинета.
+import {
   Upload, FileText, CheckCircle, AlertTriangle, Play,
   ShoppingBag, Clipboard, BarChart2, DollarSign, 
   RefreshCw, PlusCircle, Check, X, ShieldAlert, ArrowRight
@@ -121,8 +121,9 @@ export default function PartnerDashboard() {
     const reader = new FileReader();
 
     if (file.name.endsWith('.csv')) {
-      reader.onload = (e) => {
+      reader.onload = async (e) => {
         const text = e.target.result;
+        const Papa = (await import('papaparse')).default;
         Papa.parse(text, {
           header: true,
           skipEmptyLines: true,
@@ -160,8 +161,9 @@ export default function PartnerDashboard() {
       };
       reader.readAsText(file, 'UTF-8');
     } else if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
-      reader.onload = (e) => {
+      reader.onload = async (e) => {
         try {
+          const XLSX = await import('xlsx');
           const data = new Uint8Array(e.target.result);
           const workbook = XLSX.read(data, { type: 'array' });
           const firstSheetName = workbook.SheetNames[0];
