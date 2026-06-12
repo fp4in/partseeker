@@ -65,6 +65,7 @@ export default function BuyerDashboard() {
   const [orderQty, setOrderQty] = useState(1);
   const [orderComment, setOrderComment] = useState('');
   const [orderSuccessMsg, setOrderSuccessMsg] = useState(null);
+  const [lastOrder, setLastOrder] = useState(null); // для отправки заказа магазину
   const [toast, setToast] = useState('');
 
   const handleShare = async (title, text) => {
@@ -207,8 +208,42 @@ export default function BuyerDashboard() {
     if (res.success) {
       haptic('medium');
       setOrderSuccessMsg(res.order.id);
+      setLastOrder(res.order);
       setBuyerName(''); setBuyerPhone(''); setOrderQty(1); setOrderComment('');
     } else alert(`Ошибка: ${res.message}`);
+  };
+
+  // Доставка заказа магазину без бэкенда: открываем WhatsApp/Telegram
+  // магазина с уже заполненным текстом заказа.
+  const buildOrderText = (order) => {
+    const shop = shops.find(s => s.id === order.shop_id);
+    return [
+      `🔧 ${t('ord.waHeader')} PARTSEEKER`,
+      '',
+      `${t('ord.selected')}: ${order.part_name} (${order.part_brand})`,
+      `${t('det.article')}: ${order.part_article}`,
+      `${t('ord.qty')}: ${order.quantity}`,
+      `${t('det.price')}: ${formatPrice(order.price)} сом.`,
+      '',
+      `${t('ord.name')}: ${order.buyer_name}`,
+      `${t('ord.phone')}: ${order.buyer_phone}`,
+      order.comment ? `${t('ord.comment')}: ${order.comment}` : '',
+      '',
+      `${t('ord.num')}: ${order.id}`,
+    ].filter(Boolean).join('\n') + (shop ? '' : '');
+  };
+
+  const sendOrderToShop = (channel) => {
+    if (!lastOrder) return;
+    haptic('light');
+    const shop = shops.find(s => s.id === lastOrder.shop_id);
+    const phone = (shop?.phone || '').replace(/[^\d]/g, '');
+    const text = buildOrderText(lastOrder);
+    const url = channel === 'tg'
+      ? `https://t.me/+${phone}?text=${encodeURIComponent(text)}`
+      : `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
+    if (!phone) { setToast(t('ord.noPhone')); return; }
+    window.open(url, '_blank', 'noopener');
   };
 
   const handleBrandFilterToggle = (b) => setSelectedBrands(prev => prev.includes(b) ? prev.filter(x => x !== b) : [...prev, b]);
@@ -780,8 +815,14 @@ export default function BuyerDashboard() {
                 <div style={{ width: '68px', height: '68px', borderRadius: '50%', background: 'var(--success-glow)', border: '2px solid var(--success)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', color: 'var(--success)', animation: 'popIn 0.4s var(--ease-spring)' }}><Check size={34} /></div>
                 <h3>{t('ord.successT')}</h3>
                 <p style={{ color: 'var(--text-secondary)', marginTop: '10px' }}>{t('ord.num')}: <strong style={{ color: 'var(--accent)' }}>{orderSuccessMsg}</strong></p>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '8px' }}>{t('ord.successD')}</p>
-                <button className="btn btn-primary" style={{ marginTop: '24px', width: '100%' }} onClick={() => setOrderOffer(null)}>{t('ord.great')}</button>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '8px' }}>{t('ord.sendHint')}</p>
+                <button className="btn btn-accent" style={{ marginTop: '20px', width: '100%' }} onClick={() => sendOrderToShop('wa')}>
+                  <Phone size={16} /> {t('ord.sendWa')}
+                </button>
+                <button className="btn btn-secondary" style={{ marginTop: '10px', width: '100%' }} onClick={() => sendOrderToShop('tg')}>
+                  {t('ord.sendTg')}
+                </button>
+                <button className="btn btn-secondary" style={{ marginTop: '10px', width: '100%', opacity: 0.8 }} onClick={() => setOrderOffer(null)}>{t('ord.great')}</button>
               </div>
             ) : (
               <form onSubmit={handlePlaceOrder}>

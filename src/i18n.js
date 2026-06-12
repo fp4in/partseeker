@@ -88,7 +88,10 @@ const dict = {
     'ord.name': 'Ваше имя', 'ord.phone': 'Номер телефона', 'ord.qty': 'Количество', 'ord.available': 'Доступно',
     'ord.total': 'Итого', 'ord.comment': 'Комментарий (необязательно)', 'ord.commentPh': 'VIN авто для проверки, время самовывоза и т.д.',
     'ord.submit': 'Оформить заказ', 'ord.successT': 'Заказ успешно создан!', 'ord.num': 'Номер заказа',
-    'ord.successD': 'Заявка отправлена в магазин. Представитель свяжется с вами по телефону.', 'ord.great': 'Отлично',
+    'ord.successD': 'Заявка отправлена в магазин. Представитель свяжется с вами по телефону.', 'ord.great': 'Закрыть',
+    'ord.sendHint': 'Отправьте заказ магазину, чтобы он связался с вами быстрее:',
+    'ord.sendWa': 'Отправить в WhatsApp', 'ord.sendTg': 'Отправить в Telegram',
+    'ord.waHeader': 'Новый заказ через', 'ord.noPhone': 'У магазина не указан номер для связи',
     'ord.namePh': 'Например, Иван', 'ord.perPc': '/ шт.',
 
     // common nav
@@ -190,7 +193,10 @@ const dict = {
     'ord.name': 'Номи шумо', 'ord.phone': 'Рақами телефон', 'ord.qty': 'Миқдор', 'ord.available': 'Мавҷуд',
     'ord.total': 'Ҳамагӣ', 'ord.comment': 'Шарҳ (ихтиёрӣ)', 'ord.commentPh': 'VIN барои санҷиш, вақти гирифтан ва ғ.',
     'ord.submit': 'Фармоиш додан', 'ord.successT': 'Фармоиш бомуваффақият сохта шуд!', 'ord.num': 'Рақами фармоиш',
-    'ord.successD': 'Дархост ба мағоза фиристода шуд. Намоянда бо шумо тамос мегирад.', 'ord.great': 'Хуб',
+    'ord.successD': 'Дархост ба мағоза фиристода шуд. Намоянда бо шумо тамос мегирад.', 'ord.great': 'Пӯшидан',
+    'ord.sendHint': 'Фармоишро ба мағоза фиристед, то зудтар бо шумо тамос гирад:',
+    'ord.sendWa': 'Ба WhatsApp фиристодан', 'ord.sendTg': 'Ба Telegram фиристодан',
+    'ord.waHeader': 'Фармоиши нав тавассути', 'ord.noPhone': 'Мағоза рақами тамос надорад',
     'ord.namePh': 'Масалан, Алӣ', 'ord.perPc': '/ дона',
 
     'common.back': 'Бозгашт', 'common.results': 'Натиҷаҳои ҷустуҷӯ', 'common.detail': 'Корти қисм', 'common.shopProfile': 'Профили мағоза',
@@ -288,7 +294,10 @@ const dict = {
     'ord.name': 'Your name', 'ord.phone': 'Phone number', 'ord.qty': 'Quantity', 'ord.available': 'Available',
     'ord.total': 'Total', 'ord.comment': 'Comment (optional)', 'ord.commentPh': 'VIN for verification, pickup time, etc.',
     'ord.submit': 'Place order', 'ord.successT': 'Order placed successfully!', 'ord.num': 'Order number',
-    'ord.successD': 'The request was sent to the shop. A representative will call you shortly.', 'ord.great': 'Great',
+    'ord.successD': 'The request was sent to the shop. A representative will call you shortly.', 'ord.great': 'Close',
+    'ord.sendHint': 'Send the order to the shop so they reach you faster:',
+    'ord.sendWa': 'Send via WhatsApp', 'ord.sendTg': 'Send via Telegram',
+    'ord.waHeader': 'New order via', 'ord.noPhone': 'The shop has no contact number',
     'ord.namePh': 'e.g. John', 'ord.perPc': '/ pc.',
 
     'common.back': 'Back', 'common.results': 'Search results', 'common.detail': 'Part card', 'common.shopProfile': 'Shop profile',
