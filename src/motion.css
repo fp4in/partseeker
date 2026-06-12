@@ -209,6 +209,66 @@
 .kb-open .search-hero::before,
 .kb-open .search-hero::after { display: none; }
 
+/* ============================================================
+   Фильтры/сайдбар: на мобиле НЕ sticky (иначе панель «прилипает»
+   к верху и карточки наезжают на неё — баг наложения на телефоне),
+   а сама панель фильтров сворачивается.
+   ============================================================ */
+.filters-toggle-icon { display: none; }   /* шеврон у заголовка фильтров */
+
+@media (max-width: 991px) {
+  .filters-panel,
+  .partner-card-sidebar {
+    position: static;
+    top: auto;
+  }
+
+  /* Заголовок «Фильтры» становится кнопкой-аккордеоном */
+  .filters-head { cursor: pointer; user-select: none; }
+  .filters-toggle-icon {
+    display: inline-flex;
+    margin-left: auto;
+    transition: transform 0.25s var(--ease-spring);
+  }
+  .filters-panel.is-open .filters-toggle-icon { transform: rotate(180deg); }
+
+  /* Тело фильтров скрыто, пока не раскрыто */
+  .filters-body { display: none; }
+  .filters-panel.is-open .filters-body { display: block; }
+  .filters-panel:not(.is-open) { padding-bottom: 18px; }
+}
+
+/* На десктопе тело фильтров всегда видно, шеврон не нужен */
+@media (min-width: 992px) {
+  .filters-body { display: block !important; }
+}
+
+/* ============================================================
+   Тач-устройства (телефон/планшет): отключаем backdrop-filter.
+   На Android WebView blur-стекло при прокрутке оставляет «следы»
+   и накладывается слоями («двойная» вёрстка). Заменяем стекло
+   на плотный фон — выглядит чисто и без артефактов рендера.
+   ============================================================ */
+@media (hover: none) and (pointer: coarse) {
+  .glass-panel,
+  .app-header,
+  .filters-panel,
+  .lang-menu,
+  .modal-content,
+  .app-toast,
+  .hero-eyebrow {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  .glass-panel { background: var(--bg-card-solid); }
+  .app-header { background: var(--bg-obsidian); }
+  .modal-overlay {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: hsla(228, 30%, 4%, 0.86);
+  }
+}
+
 /* Кнопка «Поделиться» */
 .share-btn {
   width: 34px;

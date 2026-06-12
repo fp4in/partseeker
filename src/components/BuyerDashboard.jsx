@@ -10,7 +10,7 @@ import {
   Search, Car, Phone, MapPin, Clock,
   SlidersHorizontal, ArrowLeftRight, Check, X, ShoppingBag,
   ArrowLeft, Globe, Info, ShoppingCart, Sparkles, TrendingUp,
-  ShieldCheck, Truck, Tag, Layers, Star, ChevronRight, Package, Plus,
+  ShieldCheck, Truck, Tag, Layers, Star, ChevronRight, ChevronDown, Package, Plus,
   Cpu, Disc, Activity, Compass, Shuffle, Filter, Lightbulb,
   Thermometer, Wind, Layout, Fuel, Flame, Droplets, Share2
 } from 'lucide-react';
@@ -57,6 +57,7 @@ export default function BuyerDashboard() {
   const [selectedShops, setSelectedShops] = useState([]);
   const [onlyInStock, setOnlyInStock] = useState(false);
   const [sortBy, setSortBy] = useState('price_asc');
+  const [filtersOpen, setFiltersOpen] = useState(false); // мобильный аккордеон фильтров
 
   const [orderOffer, setOrderOffer] = useState(null);
   const [buyerName, setBuyerName] = useState('');
@@ -474,9 +475,14 @@ export default function BuyerDashboard() {
       {/* RESULTS */}
       {currentView === 'results' && (
         <div className="results-layout">
-          <div className="glass-panel filters-panel" data-reveal="left">
-            <h3 style={{ fontSize: '1.1rem', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}><SlidersHorizontal size={18} /> {t('res.filters')}</h3>
+          <div className={`glass-panel filters-panel ${filtersOpen ? 'is-open' : ''}`} data-reveal="left">
+            <h3 className="filters-head" style={{ fontSize: '1.1rem', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}
+              onClick={() => { haptic('light'); setFiltersOpen(o => !o); }}>
+              <SlidersHorizontal size={18} /> {t('res.filters')}
+              <ChevronDown className="filters-toggle-icon" size={18} />
+            </h3>
 
+            <div className="filters-body">
             {resultCategories.length > 1 && (
               <div className="filter-section">
                 <div className="filter-title">{t('res.category')}</div>
@@ -517,6 +523,7 @@ export default function BuyerDashboard() {
             {(selectedBrands.length > 0 || selectedShops.length > 0 || priceMin || priceMax || onlyInStock || selectedCategory) && (
               <button className="btn btn-secondary btn-sm" style={{ width: '100%' }} onClick={resetAllFilters}>{t('res.reset')}</button>
             )}
+            </div>
           </div>
 
           <div>
