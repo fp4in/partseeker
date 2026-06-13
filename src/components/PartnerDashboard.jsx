@@ -709,17 +709,21 @@ export default function PartnerDashboard() {
                     <div style={{ marginTop: '12px', fontSize: '0.9rem', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       <div>Имя файла: <strong>{log.filename}</strong></div>
                       <div>Время загрузки: <strong>{new Date(log.timestamp).toLocaleString()}</strong></div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginTop: '8px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '10px', marginTop: '8px' }}>
                         <div style={{ background: 'var(--bg-space)', padding: '10px', borderRadius: '4px' }}>
                           <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Строк обработано</span>
                           <div style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{log.rowsCount}</div>
                         </div>
                         <div style={{ background: 'var(--bg-space)', padding: '10px', borderRadius: '4px' }}>
-                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Загружено предложений</span>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Добавлено</span>
                           <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--success)' }}>{log.addedOffers}</div>
                         </div>
                         <div style={{ background: 'var(--bg-space)', padding: '10px', borderRadius: '4px' }}>
-                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Новых карточек в каталоге</span>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Обновлено</span>
+                          <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--primary)' }}>{log.updatedOffers || 0}</div>
+                        </div>
+                        <div style={{ background: 'var(--bg-space)', padding: '10px', borderRadius: '4px' }}>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Новых карточек</span>
                           <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--accent)' }}>{log.newPartsCreated}</div>
                         </div>
                       </div>

@@ -834,6 +834,35 @@ export const AppProvider = ({ children }) => {
     setPartViews(prev => ({ ...prev, [partId]: (prev[partId] || 0) + 1 }));
   };
 
+  // --- Отзывы и рейтинг магазинов (реальные, локально) ---
+  const [reviews, setReviews] = useState(() => JSON.parse(localStorage.getItem('agg_reviews')) || []);
+  useEffect(() => { localStorage.setItem('agg_reviews', JSON.stringify(reviews)); }, [reviews]);
+
+  const addReview = ({ shopId, rating, text, buyerEmail, buyerName }) => {
+    const r = Math.max(1, Math.min(5, parseInt(rating, 10) || 0));
+    if (!shopId || !r) return { success: false, error: 'badRating' };
+    setReviews(prev => {
+      // один отзыв на магазин от покупателя — повторный обновляет прежний
+      const idx = prev.findIndex(x => x.shop_id === shopId && x.buyer_email && buyerEmail && x.buyer_email === buyerEmail);
+      const review = {
+        id: idx >= 0 ? prev[idx].id : `rev-${Date.now()}`,
+        shop_id: shopId, rating: r, text: String(text || '').trim(),
+        buyer_email: buyerEmail || null, buyer_name: buyerName || 'Покупатель',
+        created_at: new Date().toISOString(),
+      };
+      if (idx >= 0) { const n = [...prev]; n[idx] = review; return n; }
+      return [review, ...prev];
+    });
+    return { success: true };
+  };
+
+  const getShopRating = (shopId) => {
+    const list = reviews.filter(r => r.shop_id === shopId);
+    if (!list.length) return { avg: null, count: 0 };
+    const avg = list.reduce((s, r) => s + r.rating, 0) / list.length;
+    return { avg: Math.round(avg * 10) / 10, count: list.length };
+  };
+
   // Parsing & File upload logs
   const [parsingLogs, setParsingLogs] = useState(() => JSON.parse(localStorage.getItem('agg_parsing_logs')) || {});
 
@@ -1209,8 +1238,10 @@ export const AppProvider = ({ children }) => {
     const plan = plans.find(p => p.id === shop?.subscription_plan);
     const limit = plan ? plan.max_offers : 100;
 
-    const otherShopsOffers = updatedOffersList.filter(o => o.shop_id !== shopId);
-    const shopNewOffers = [];
+    // Upsert: НЕ затираем существующие товары магазина — обновляем совпавшие
+    // по детали и добавляем новые. Так ручные товары и прошлые загрузки сохраняются.
+    const workingOffers = [...updatedOffersList];
+    const shopOfferCount = () => workingOffers.filter(o => o.shop_id === shopId).length;
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
@@ -1236,12 +1267,6 @@ export const AppProvider = ({ children }) => {
       }
 
       parsedCount++;
-
-      // Enforce subscription limits
-      if (shopNewOffers.length >= limit) {
-        errors.push(`Строка ${lineNum}: Достигнут лимит тарифного плана в ${limit} товаров. Пропуск.`);
-        continue;
-      }
 
       const rawArticle = String(row.article);
       const normalizedArt = normalizeArticle(rawArticle);
@@ -1302,25 +1327,38 @@ export const AppProvider = ({ children }) => {
         }
       }
 
-      const newOffer = {
-        id: `off-${shopId}-${normalizedArt}-${Date.now()}`,
-        shop_id: shopId,
-        part_id: part.id,
-        raw_article: rawArticle,
-        raw_name: String(row.name),
-        price: price,
-        currency: row.currency || 'TJS',
-        quantity: quantity,
-        is_available: quantity > 0,
-        delivery_days: parseInt(row.delivery_days, 10) || 0,
-        updated_at: new Date().toISOString(),
-        source_file: filename
-      };
-
-      shopNewOffers.push(newOffer);
+      // Upsert: если у магазина уже есть оффер на эту деталь — обновляем,
+      // иначе добавляем новый (с учётом лимита тарифа).
+      const existingIdx = workingOffers.findIndex(o => o.shop_id === shopId && o.part_id === part.id);
+      if (existingIdx >= 0) {
+        workingOffers[existingIdx] = {
+          ...workingOffers[existingIdx],
+          raw_article: rawArticle, raw_name: String(row.name),
+          price: price, currency: row.currency || 'TJS',
+          quantity: quantity, is_available: quantity > 0,
+          delivery_days: parseInt(row.delivery_days, 10) || 0,
+          updated_at: new Date().toISOString(), source_file: filename,
+        };
+        updatedOffers++;
+      } else {
+        if (shopOfferCount() >= limit) {
+          errors.push(`Строка ${lineNum}: Достигнут лимит тарифного плана в ${limit} товаров. Пропуск.`);
+          continue;
+        }
+        workingOffers.push({
+          id: `off-${shopId}-${normalizedArt}-${Date.now()}-${i}`,
+          shop_id: shopId, part_id: part.id,
+          raw_article: rawArticle, raw_name: String(row.name),
+          price: price, currency: row.currency || 'TJS',
+          quantity: quantity, is_available: quantity > 0,
+          delivery_days: parseInt(row.delivery_days, 10) || 0,
+          updated_at: new Date().toISOString(), source_file: filename,
+        });
+        addedOffers++;
+      }
     }
 
-    setOffers([...otherShopsOffers, ...shopNewOffers]);
+    setOffers(workingOffers);
     setParts(updatedPartsList);
 
     const log = {
@@ -1328,7 +1366,8 @@ export const AppProvider = ({ children }) => {
       filename: filename,
       rowsCount: rows.length,
       parsedCount: parsedCount,
-      addedOffers: shopNewOffers.length,
+      addedOffers: addedOffers,
+      updatedOffers: updatedOffers,
       newPartsCreated: newPartsCreated,
       errors: errors
     };
@@ -1468,6 +1507,10 @@ export const AppProvider = ({ children }) => {
       partViews,
       recordPartView,
       addOfferManual,
+      // reviews / ratings
+      reviews,
+      addReview,
+      getShopRating,
       resetDatabase,
       searchParts,
       getPartDetails,

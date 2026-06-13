@@ -123,6 +123,10 @@ const dict = {
     'cart.shopOrder': 'Заказ магазину', 'cart.placedOk': 'Заказы оформлены!', 'cart.placedHint': 'Отправьте их магазинам в один тап.',
     'cart.sendShop': 'Отправить магазину', 'cart.positions': 'позиций', 'cart.goCart': 'Перейти в корзину',
     'cart.st.new': 'Новый', 'cart.st.accepted': 'Принят', 'cart.st.ready': 'Готов к выдаче', 'cart.st.completed': 'Выдан', 'cart.st.cancelled': 'Отменён',
+    'rev.title': 'Отзывы', 'rev.leave': 'Оставить отзыв', 'rev.your': 'Ваша оценка', 'rev.text': 'Комментарий (необязательно)',
+    'rev.send': 'Отправить отзыв', 'rev.none': 'Пока нет отзывов — будьте первым.', 'rev.login': 'Войдите как покупатель, чтобы оставить отзыв.',
+    'rev.thanks': 'Спасибо за отзыв!', 'rev.noRating': 'Нет оценок',
+    'flt.delivery': 'Срок доставки до, дней', 'flt.minRating': 'Рейтинг магазина от', 'flt.any': 'любой',
 
     // footer
     'foot.about': 'Агрегатор автозапчастей: единый поиск по артикулу, бренду и марке авто. Сравнивайте цены магазинов-партнёров и заказывайте выгодно.',
@@ -246,6 +250,10 @@ const dict = {
     'cart.shopOrder': 'Фармоиш ба мағоза', 'cart.placedOk': 'Фармоишҳо расмӣ шуданд!', 'cart.placedHint': 'Онҳоро бо як зер ба мағозаҳо фиристед.',
     'cart.sendShop': 'Ба мағоза фиристодан', 'cart.positions': 'мавқеъ', 'cart.goCart': 'Ба сабад гузаштан',
     'cart.st.new': 'Нав', 'cart.st.accepted': 'Қабул шуд', 'cart.st.ready': 'Барои гирифтан тайёр', 'cart.st.completed': 'Дода шуд', 'cart.st.cancelled': 'Бекор шуд',
+    'rev.title': 'Шарҳҳо', 'rev.leave': 'Шарҳ гузоштан', 'rev.your': 'Баҳои шумо', 'rev.text': 'Шарҳ (ихтиёрӣ)',
+    'rev.send': 'Фиристодани шарҳ', 'rev.none': 'Ҳоло шарҳ нест — аввалин бошед.', 'rev.login': 'Барои шарҳ гузоштан ҳамчун харидор ворид шавед.',
+    'rev.thanks': 'Ташаккур барои шарҳ!', 'rev.noRating': 'Баҳо нест',
+    'flt.delivery': 'Мӯҳлати расонидан то, рӯз', 'flt.minRating': 'Рейтинги мағоза аз', 'flt.any': 'ҳар гуна',
 
     'foot.about': 'Агрегатори эҳтиётқисмҳо: ҷустуҷӯи ягона аз рӯи артикул, бренд ва мошина. Нархҳои шарикро муқоиса кунед.',
     'foot.buyers': 'Ба харидорон', 'foot.shops': 'Ба мағозаҳо', 'foot.contacts': 'Тамос',
@@ -367,6 +375,10 @@ const dict = {
     'cart.shopOrder': 'Order to shop', 'cart.placedOk': 'Orders placed!', 'cart.placedHint': 'Send them to the shops in one tap.',
     'cart.sendShop': 'Send to shop', 'cart.positions': 'items', 'cart.goCart': 'Go to cart',
     'cart.st.new': 'New', 'cart.st.accepted': 'Accepted', 'cart.st.ready': 'Ready for pickup', 'cart.st.completed': 'Delivered', 'cart.st.cancelled': 'Cancelled',
+    'rev.title': 'Reviews', 'rev.leave': 'Leave a review', 'rev.your': 'Your rating', 'rev.text': 'Comment (optional)',
+    'rev.send': 'Submit review', 'rev.none': 'No reviews yet — be the first.', 'rev.login': 'Sign in as a buyer to leave a review.',
+    'rev.thanks': 'Thanks for your review!', 'rev.noRating': 'No ratings',
+    'flt.delivery': 'Delivery time up to, days', 'flt.minRating': 'Shop rating from', 'flt.any': 'any',
 
     'foot.about': 'Auto parts aggregator: unified search by part number, brand and vehicle. Compare partner prices and order smart.',
     'foot.buyers': 'For buyers', 'foot.shops': 'For shops', 'foot.contacts': 'Contacts',

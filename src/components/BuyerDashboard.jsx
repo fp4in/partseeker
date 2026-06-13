@@ -33,7 +33,7 @@ export default function BuyerDashboard() {
     searchParts, getPartDetails, createOrder,
     t, garage, addToGarage, removeFromGarage,
     orders, buyerUser, cart, addToCart, removeFromCart, setCartQty, clearCart, createOrdersFromCart,
-    recordPartView, updateBuyerProfile
+    recordPartView, updateBuyerProfile, reviews, addReview, getShopRating
   } = useContext(AppContext);
 
   const [currentView, setCurrentView] = useState('home');
@@ -58,6 +58,8 @@ export default function BuyerDashboard() {
   const [selectedBrands, setSelectedBrands] = useState([]);
   const [selectedShops, setSelectedShops] = useState([]);
   const [onlyInStock, setOnlyInStock] = useState(false);
+  const [maxDelivery, setMaxDelivery] = useState('');   // макс. срок доставки (дней)
+  const [minRating, setMinRating] = useState(0);        // мин. рейтинг магазина
   const [sortBy, setSortBy] = useState('price_asc');
   const [filtersOpen, setFiltersOpen] = useState(false); // мобильный аккордеон фильтров
 
@@ -82,6 +84,16 @@ export default function BuyerDashboard() {
   const [profPhone, setProfPhone] = useState('');
   const startEditProfile = () => { setProfName(buyerUser?.name || ''); setProfPhone(buyerUser?.phone || ''); setEditingProfile(true); };
   const saveProfile = (e) => { e.preventDefault(); updateBuyerProfile({ name: profName.trim() || buyerUser?.name, phone: profPhone.trim() }); setEditingProfile(false); showToast(t('buyer.saved')); };
+
+  // Отзыв о магазине
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewText, setReviewText] = useState('');
+  const submitReview = (e) => {
+    e.preventDefault();
+    if (!selectedShopId || !buyerUser) return;
+    const res = addReview({ shopId: selectedShopId, rating: reviewRating, text: reviewText, buyerEmail: buyerUser.email, buyerName: buyerUser.name });
+    if (res.success) { haptic('medium'); setReviewText(''); showToast(t('rev.thanks')); }
+  };
 
   const cartCount = cart.reduce((n, c) => n + c.qty, 0);
   const cartTotal = cart.reduce((s, c) => s + c.price * c.qty, 0);
@@ -197,15 +209,22 @@ export default function BuyerDashboard() {
     if (priceMax) result = result.filter(p => p.min_price !== null && p.min_price <= parseFloat(priceMax));
     if (selectedShops.length > 0) result = result.filter(p => p.all_offers.some(o => selectedShops.includes(o.shop_id)));
     if (onlyInStock) result = result.filter(p => p.total_quantity > 0);
+    if (maxDelivery) result = result.filter(p => p.all_offers.some(o => (o.delivery_days ?? 0) <= parseInt(maxDelivery, 10)));
+    if (minRating > 0) result = result.filter(p => p.all_offers.some(o => {
+      const r = getShopRating(o.shop_id); return r.avg !== null && r.avg >= minRating;
+    }));
+    const bestRating = (p) => Math.max(0, ...p.all_offers.map(o => getShopRating(o.shop_id).avg || 0));
     result.sort((a, b) => {
       const pa = a.min_price ?? Infinity, pb = b.min_price ?? Infinity;
       if (sortBy === 'price_asc') return pa - pb;
       if (sortBy === 'price_desc') return pb - pa;
       if (sortBy === 'offers') return b.offers_count - a.offers_count;
+      if (sortBy === 'rating') return bestRating(b) - bestRating(a);
       return 0;
     });
     return result;
-  }, [rawSearchResults, selectedCategory, selectedBrands, priceMin, priceMax, selectedShops, onlyInStock, sortBy]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rawSearchResults, selectedCategory, selectedBrands, priceMin, priceMax, selectedShops, onlyInStock, maxDelivery, minRating, sortBy, reviews]);
 
   const popularParts = useMemo(() => {
     return searchParts('', '', '', null).filter(p => p.min_price !== null).sort((a, b) => b.offers_count - a.offers_count).slice(0, 4);
@@ -340,7 +359,7 @@ export default function BuyerDashboard() {
   const handleBrandFilterToggle = (b) => setSelectedBrands(prev => prev.includes(b) ? prev.filter(x => x !== b) : [...prev, b]);
   const handleShopFilterToggle = (id) => setSelectedShops(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   const clearCarFilter = () => { setSelectedMake(''); setSelectedModel(''); setSelectedYear(''); setSelectedEngine(''); };
-  const resetAllFilters = () => { setSelectedBrands([]); setSelectedShops([]); setPriceMin(''); setPriceMax(''); setOnlyInStock(false); setSelectedCategory(''); };
+  const resetAllFilters = () => { setSelectedBrands([]); setSelectedShops([]); setPriceMin(''); setPriceMax(''); setOnlyInStock(false); setMaxDelivery(''); setMinRating(0); setSelectedCategory(''); };
 
   const offerWord = (n) => n === 1 ? t('res.offer1') : (n < 5 ? t('res.offer2') : t('res.offer5'));
   const activeCategoryName = selectedCategory ? t('cat.' + selectedCategory) : '';
@@ -596,7 +615,11 @@ export default function BuyerDashboard() {
                       <img src={shop.logo_url} alt={shop.name} style={{ width: '52px', height: '52px', borderRadius: '14px', objectFit: 'cover' }} />
                       <div>
                         <h4 style={{ fontSize: '1.05rem' }}>{shop.name}</h4>
-                        <span className="badge badge-success" style={{ fontSize: '0.65rem' }}><Star size={10} /> {shop.id === 'shop-1' ? '4.8' : '4.5'}</span>
+                        {(() => { const r = getShopRating(shop.id); return (
+                          <span className="badge badge-success" style={{ fontSize: '0.65rem' }}>
+                            <Star size={10} /> {r.avg !== null ? `${r.avg} (${r.count})` : '—'}
+                          </span>
+                        ); })()}
                       </div>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
@@ -659,7 +682,29 @@ export default function BuyerDashboard() {
               <label className="checkbox-label"><input type="checkbox" checked={onlyInStock} onChange={(e) => setOnlyInStock(e.target.checked)} /> {t('res.inStock')}</label>
             </div>
 
-            {(selectedBrands.length > 0 || selectedShops.length > 0 || priceMin || priceMax || onlyInStock || selectedCategory) && (
+            <div className="filter-section">
+              <label className="form-label" style={{ fontSize: '0.8rem' }}>{t('flt.delivery')}</label>
+              <select className="form-control" style={{ padding: '9px' }} value={maxDelivery} onChange={(e) => setMaxDelivery(e.target.value)}>
+                <option value="">{t('flt.any')}</option>
+                <option value="0">0 ({t('res.inStock')})</option>
+                <option value="1">1</option>
+                <option value="3">3</option>
+                <option value="7">7</option>
+                <option value="14">14</option>
+              </select>
+            </div>
+
+            <div className="filter-section">
+              <label className="form-label" style={{ fontSize: '0.8rem' }}>{t('flt.minRating')}</label>
+              <select className="form-control" style={{ padding: '9px' }} value={minRating} onChange={(e) => setMinRating(parseInt(e.target.value, 10))}>
+                <option value="0">{t('flt.any')}</option>
+                <option value="3">3★+</option>
+                <option value="4">4★+</option>
+                <option value="5">5★</option>
+              </select>
+            </div>
+
+            {(selectedBrands.length > 0 || selectedShops.length > 0 || priceMin || priceMax || onlyInStock || maxDelivery || minRating > 0 || selectedCategory) && (
               <button className="btn btn-secondary btn-sm" style={{ width: '100%' }} onClick={resetAllFilters}>{t('res.reset')}</button>
             )}
             </div>
@@ -680,6 +725,7 @@ export default function BuyerDashboard() {
                   <option value="price_asc">{t('res.cheap')}</option>
                   <option value="price_desc">{t('res.expensive')}</option>
                   <option value="offers">{t('res.offers')}</option>
+                  <option value="rating">{t('flt.minRating')}</option>
                 </select>
               </div>
             </div>
@@ -834,7 +880,9 @@ export default function BuyerDashboard() {
             <div style={{ flex: '1', minWidth: '280px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                 <h2>{shopData.name}</h2>
-                <span className="badge badge-success"><Star size={11} /> {shopData.id === 'shop-1' ? '4.8' : '4.5'}</span>
+                {(() => { const r = getShopRating(shopData.id); return (
+                  <span className="badge badge-success"><Star size={11} /> {r.avg !== null ? `${r.avg} · ${r.count}` : t('rev.noRating')}</span>
+                ); })()}
                 <button className="icon-btn share-btn" title={t('share.title')} onClick={() => handleShare(shopData.name, `${shopData.name} · ${shopData.address} · ${shopData.phone}`)}><Share2 size={16} /></button>
               </div>
               <p style={{ marginTop: '8px', fontSize: '0.95rem', color: 'var(--text-secondary)' }}>{shopData.description}</p>
@@ -903,6 +951,51 @@ export default function BuyerDashboard() {
                 </table>
               </div>
             )}
+          </div>
+
+          {/* Отзывы о магазине */}
+          <div className="glass-panel" style={{ padding: '24px' }} data-reveal="up">
+            <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.2rem', marginBottom: '16px' }}>
+              <Star size={20} style={{ color: 'var(--warning)' }} /> {t('rev.title')}
+            </h3>
+
+            {buyerUser ? (
+              <form onSubmit={submitReview} style={{ marginBottom: '20px', paddingBottom: '20px', borderBottom: '1px solid var(--border-light)' }}>
+                <div style={{ marginBottom: '10px', fontSize: '0.88rem', color: 'var(--text-secondary)' }}>{t('rev.your')}</div>
+                <div className="rev-stars">
+                  {[1, 2, 3, 4, 5].map(n => (
+                    <button type="button" key={n} className={`rev-star ${n <= reviewRating ? 'on' : ''}`}
+                      onClick={() => setReviewRating(n)} aria-label={`${n}`}>
+                      <Star size={24} />
+                    </button>
+                  ))}
+                </div>
+                <textarea className="form-control" rows="2" style={{ marginTop: '12px' }} placeholder={t('rev.text')}
+                  value={reviewText} onChange={(e) => setReviewText(e.target.value)} />
+                <button type="submit" className="btn btn-primary btn-sm" style={{ marginTop: '12px' }}>{t('rev.send')}</button>
+              </form>
+            ) : (
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '16px' }}>{t('rev.login')}</p>
+            )}
+
+            {(() => {
+              const list = reviews.filter(r => r.shop_id === selectedShopId);
+              if (list.length === 0) return <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>{t('rev.none')}</p>;
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  {list.map(r => (
+                    <div key={r.id} className="rev-item">
+                      <div className="rev-item-head">
+                        <strong>{r.buyer_name}</strong>
+                        <span className="rev-item-stars">{'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}</span>
+                      </div>
+                      {r.text && <div className="rev-item-text">{r.text}</div>}
+                      <div className="rev-item-date">{new Date(r.created_at).toLocaleDateString()}</div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}

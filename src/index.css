@@ -1226,6 +1226,15 @@ select.form-control option { background: var(--bg-obsidian); color: var(--text-p
 .finance-pill { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-radius: var(--radius-sm, 10px); background: var(--bg-obsidian, var(--bg-card)); border: 1px solid var(--border-light); }
 .finance-pill span { font-size: 0.78rem; color: var(--text-muted); }
 .finance-pill strong { font-size: 1.4rem; }
+.rev-stars { display: flex; gap: 4px; }
+.rev-star { background: none; border: none; cursor: pointer; color: var(--text-muted); padding: 0; line-height: 0; transition: color 0.15s ease, transform 0.15s ease; }
+.rev-star:hover { transform: scale(1.15); }
+.rev-star.on { color: var(--warning, #e0a020); }
+.rev-item { padding: 12px 14px; border-radius: var(--radius-sm, 10px); background: var(--bg-obsidian, var(--bg-card)); border: 1px solid var(--border-light); }
+.rev-item-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.rev-item-stars { color: var(--warning, #e0a020); letter-spacing: 1px; font-size: 0.9rem; }
+.rev-item-text { margin-top: 6px; font-size: 0.9rem; color: var(--text-secondary); line-height: 1.5; }
+.rev-item-date { margin-top: 6px; font-size: 0.75rem; color: var(--text-muted); }
 
 /* ---- Utility text ---- */
 .error-text-line { color: var(--error); font-size: 0.85rem; font-family: monospace; }
