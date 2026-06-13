@@ -1433,3 +1433,16 @@ select.form-control option { background: var(--bg-obsidian); color: var(--text-p
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; }
 }
+
+/* ---- Адаптация под большие мониторы ----
+   На ноутбуках/телефонах ширина не меняется (контент и так заполняет экран).
+   На широких экранах расширяем контейнер и добавляем категориям колонки,
+   чтобы убрать «пустые поля» по краям. */
+@media (min-width: 1600px) {
+  :root { --maxw: 1480px; }
+  .categories-grid { grid-template-columns: repeat(7, 1fr); }
+}
+@media (min-width: 1920px) {
+  :root { --maxw: 1680px; }
+  .categories-grid { grid-template-columns: repeat(8, 1fr); }
+}
