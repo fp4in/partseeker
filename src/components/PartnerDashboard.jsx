@@ -5,7 +5,7 @@ import { AppContext } from '../context/AppContext';
 import {
   Upload, FileText, CheckCircle, AlertTriangle, Play,
   ShoppingBag, Clipboard, BarChart2, DollarSign,
-  RefreshCw, PlusCircle, Check, X, ShieldAlert, ArrowRight, Eye, Phone, Tag
+  RefreshCw, PlusCircle, Check, X, ShieldAlert, ArrowRight, Eye, Phone, Tag, Package, Trash2, Pencil
 } from 'lucide-react';
 
 export default function PartnerDashboard() {
@@ -23,7 +23,9 @@ export default function PartnerDashboard() {
     updateShopProfile,
     updateOrderStatus,
     parseAndApplyPricelist,
-    addOfferManual
+    addOfferManual,
+    updateOfferFields,
+    deleteOffer
   } = useContext(AppContext);
 
   // Active sub-view
@@ -54,6 +56,14 @@ export default function PartnerDashboard() {
   });
   const [manualMsg, setManualMsg] = useState(null); // { ok, text }
   const setMF = (k, v) => { setManualForm(prev => ({ ...prev, [k]: v })); setManualMsg(null); };
+
+  // Инлайн-редактирование товара в «Мои товары»
+  const [editOfferId, setEditOfferId] = useState(null);
+  const [editPrice, setEditPrice] = useState('');
+  const [editQty, setEditQty] = useState('');
+  const startEditOffer = (o) => { setEditOfferId(o.id); setEditPrice(String(o.price)); setEditQty(String(o.quantity)); };
+  const saveOffer = (id) => { updateOfferFields(id, { price: editPrice, quantity: editQty }); setEditOfferId(null); };
+  const removeOffer = (id) => { if (window.confirm('Удалить этот товар из вашего каталога?')) deleteOffer(id); };
 
   const handleAddManual = (e) => {
     e.preventDefault();
@@ -499,6 +509,10 @@ export default function PartnerDashboard() {
             <Upload size={18} />
             {t('p.pricelist')}
           </div>
+          <div className={`partner-menu-item ${activeTab === 'products' ? 'active' : ''}`} onClick={() => setActiveTab('products')}>
+            <Package size={18} />
+            Мои товары ({shopOffers.length})
+          </div>
           <div className={`partner-menu-item ${activeTab === 'orders' ? 'active' : ''}`} onClick={() => setActiveTab('orders')}>
             <ShoppingBag size={18} />
             {t('p.orders')} ({newOrdersCount > 0 ? newOrdersCount : shopOrders.length})
@@ -744,6 +758,71 @@ export default function PartnerDashboard() {
                     </div>
                   );
                 })()}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* МОИ ТОВАРЫ */}
+        {activeTab === 'products' && (
+          <div>
+            <h2>Мои товары ({shopOffers.length})</h2>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '20px', fontSize: '0.9rem' }}>
+              Меняйте цену и наличие прямо здесь или удаляйте позиции. Новые добавляются во вкладке «Прайс-лист».
+            </p>
+            {shopOffers.length === 0 ? (
+              <div style={{ padding: '50px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                Товаров пока нет. Добавьте их во вкладке «Прайс-лист».
+              </div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table className="admin-table" style={{ width: '100%' }}>
+                  <thead>
+                    <tr>
+                      <th style={{ textAlign: 'left' }}>Товар</th>
+                      <th style={{ textAlign: 'center' }}>Цена, сом.</th>
+                      <th style={{ textAlign: 'center' }}>Наличие</th>
+                      <th style={{ textAlign: 'right' }}>Действия</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {shopOffers.map(o => {
+                      const part = parts.find(p => p.id === o.part_id);
+                      const editing = editOfferId === o.id;
+                      return (
+                        <tr key={o.id}>
+                          <td style={{ textAlign: 'left' }}>
+                            <div style={{ fontWeight: 600 }}>{part?.name || o.raw_name}</div>
+                            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{part?.brand} · {part?.article || o.raw_article}</div>
+                          </td>
+                          <td style={{ textAlign: 'center' }}>
+                            {editing
+                              ? <input type="number" min="0" className="form-control" style={{ width: '110px', margin: '0 auto', padding: '6px' }} value={editPrice} onChange={(e) => setEditPrice(e.target.value)} />
+                              : <strong>{o.price}</strong>}
+                          </td>
+                          <td style={{ textAlign: 'center' }}>
+                            {editing
+                              ? <input type="number" min="0" className="form-control" style={{ width: '90px', margin: '0 auto', padding: '6px' }} value={editQty} onChange={(e) => setEditQty(e.target.value)} />
+                              : <span style={{ color: o.quantity > 0 ? 'var(--success)' : 'var(--error)' }}>{o.quantity} шт.</span>}
+                          </td>
+                          <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                            {editing ? (
+                              <>
+                                <button className="btn btn-success btn-sm" style={{ marginRight: '6px' }} onClick={() => saveOffer(o.id)}><Check size={14} /></button>
+                                <button className="btn btn-secondary btn-sm" onClick={() => setEditOfferId(null)}><X size={14} /></button>
+                              </>
+                            ) : (
+                              <>
+                                <button className="btn btn-secondary btn-sm" style={{ marginRight: '6px' }} title="Изменить" onClick={() => startEditOffer(o)}><Pencil size={14} /></button>
+                                <button className="btn btn-danger btn-sm" title="Удалить" onClick={() => removeOffer(o.id)}><Trash2 size={14} /></button>
+                              </>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>

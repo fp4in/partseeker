@@ -12,7 +12,7 @@ import {
   ArrowLeft, Globe, Info, ShoppingCart, Sparkles, TrendingUp,
   ShieldCheck, Truck, Tag, Layers, Star, ChevronRight, ChevronDown, Package, Plus,
   Cpu, Disc, Activity, Compass, Shuffle, Filter, Lightbulb,
-  Thermometer, Wind, Layout, Fuel, Flame, Droplets, Share2, User
+  Thermometer, Wind, Layout, Fuel, Flame, Droplets, Share2, User, Heart
 } from 'lucide-react';
 import { registerBack, haptic, shareContent, hideKeyboard } from '../lib/native';
 
@@ -33,7 +33,8 @@ export default function BuyerDashboard() {
     searchParts, getPartDetails, createOrder,
     t, garage, addToGarage, removeFromGarage,
     orders, buyerUser, cart, addToCart, removeFromCart, setCartQty, clearCart, createOrdersFromCart,
-    recordPartView, updateBuyerProfile, reviews, addReview, getShopRating
+    recordPartView, updateBuyerProfile, reviews, addReview, getShopRating,
+    recentViews, favorites, toggleFavorite, isFavorite
   } = useContext(AppContext);
 
   const [currentView, setCurrentView] = useState('home');
@@ -129,7 +130,7 @@ export default function BuyerDashboard() {
     return registerBack(() => {
       if (orderOffer) { setOrderOffer(null); return true; }
       if (currentView === 'detail') { setCurrentView('results'); return true; }
-      if (currentView === 'results' || currentView === 'shop' || currentView === 'cart' || currentView === 'orders') { setCurrentView('home'); return true; }
+      if (['results', 'shop', 'cart', 'orders', 'favorites'].includes(currentView)) { setCurrentView('home'); return true; }
       return false;
     }, 0);
   }, [currentView, orderOffer]);
@@ -376,10 +377,26 @@ export default function BuyerDashboard() {
   );
   const orderImg = orderOffer ? (parts.find(p => p.id === orderOffer.part_id)?.image_url || orderOffer.image_url) : null;
 
+  const FavHeart = ({ partId }) => (
+    <button type="button" className={`fav-heart ${isFavorite(partId) ? 'on' : ''}`} title={t('fav.add')}
+      onClick={(e) => { e.stopPropagation(); haptic('light'); toggleFavorite(partId); }}>
+      <Heart size={18} />
+    </button>
+  );
+  // Детали из избранного / недавно просмотренных (как карточки поиска)
+  const allEnriched = useMemo(() => searchParts('', '', '', null), [parts, offers, shops]);
+  const favoriteParts = useMemo(() => favorites.map(id => allEnriched.find(p => p.id === id)).filter(Boolean), [favorites, allEnriched]);
+  const recentParts = useMemo(() => recentViews.map(id => allEnriched.find(p => p.id === id)).filter(Boolean).slice(0, 8), [recentViews, allEnriched]);
+
   return (
     <div className="fade-in">
       {/* Панель покупателя: «Мои заказы» + корзина (видна на всех экранах) */}
       <div className="buyer-toolbar">
+        <button className={`buyer-tool-btn ${currentView === 'favorites' ? 'is-active' : ''}`}
+          onClick={() => { haptic('light'); setCurrentView('favorites'); }}>
+          <Heart size={16} /> <span className="hide-mobile">{t('fav.title')}</span>
+          {favorites.length > 0 && <span className="buyer-tool-count">{favorites.length}</span>}
+        </button>
         <button className={`buyer-tool-btn ${currentView === 'orders' ? 'is-active' : ''}`}
           onClick={() => { haptic('light'); setCurrentView('orders'); }}>
           <ShoppingBag size={16} /> <span className="hide-mobile">{t('cart.myOrders')}</span>
@@ -575,6 +592,22 @@ export default function BuyerDashboard() {
             </div>
           </div>
 
+          {/* Недавно смотрели */}
+          {recentParts.length > 0 && (
+            <div style={{ marginBottom: '44px' }}>
+              <h3 className="section-title" data-reveal="left"><Clock size={22} style={{ color: 'var(--accent)' }} /> {t('sec.recent')}</h3>
+              <div className="recent-row-scroll">
+                {recentParts.map(part => (
+                  <div key={part.id} className="recent-card glass-panel glass-panel-hover" onClick={() => goToPart(part.id)}>
+                    <PartThumb src={part.image_url} size={32} />
+                    <div className="recent-card-name">{part.name}</div>
+                    <div className="recent-card-price">{part.min_price !== null ? `${formatPrice(part.min_price)} сом.` : '—'}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Popular */}
           {popularParts.length > 0 && (
             <div style={{ marginBottom: '44px' }}>
@@ -583,6 +616,7 @@ export default function BuyerDashboard() {
                 {popularParts.map(part => (
                   <div key={part.id} data-reveal="up">
                     <TiltCard className="glass-panel glass-panel-hover part-card" max={11}>
+                      <FavHeart partId={part.id} />
                       <div className="part-info">
                         <PartThumb src={part.image_url} />
                         <div className="part-details-text">
@@ -742,6 +776,7 @@ export default function BuyerDashboard() {
                 {filteredSearchResults.map(part => (
                   <div key={part.id} data-reveal="up">
                     <TiltCard className="glass-panel glass-panel-hover part-card" max={9} lift={10}>
+                      <FavHeart partId={part.id} />
                       <div className="part-info">
                         <PartThumb src={part.image_url} />
                         <div className="part-details-text">
@@ -1067,6 +1102,46 @@ export default function BuyerDashboard() {
                 <div className="form-group"><label className="form-label">{t('ord.comment')}</label><textarea className="form-control" rows="2" value={checkoutComment} onChange={(e) => setCheckoutComment(e.target.value)} placeholder={t('ord.commentPh')} /></div>
                 <button type="submit" className="btn btn-accent" style={{ width: '100%', padding: '13px' }}><ShoppingBag size={16} /> {t('cart.checkout')}</button>
               </form>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* FAVORITES */}
+      {currentView === 'favorites' && (
+        <div>
+          <h2 className="cart-heading"><Heart size={22} /> {t('fav.title')}</h2>
+          {favoriteParts.length === 0 ? (
+            <div className="glass-panel" style={{ padding: '46px 24px', textAlign: 'center', maxWidth: '480px', margin: '0 auto' }}>
+              <Heart size={42} style={{ color: 'var(--text-muted)', marginBottom: '14px' }} />
+              <h3>{t('fav.empty')}</h3>
+              <p style={{ color: 'var(--text-muted)', marginTop: '8px' }}>{t('fav.emptyHint')}</p>
+              <button className="btn btn-accent" style={{ marginTop: '18px' }} onClick={() => setCurrentView('home')}>{t('cart.continue')}</button>
+            </div>
+          ) : (
+            <div className="results-grid">
+              {favoriteParts.map(part => (
+                <div key={part.id}>
+                  <div className="glass-panel glass-panel-hover part-card">
+                    <FavHeart partId={part.id} />
+                    <div className="part-info">
+                      <PartThumb src={part.image_url} />
+                      <div className="part-details-text">
+                        <span className="badge badge-secondary" style={{ marginBottom: '6px' }}>{part.brand}</span>
+                        <h3>{part.name}</h3>
+                        <div className="part-meta">{t('det.article')}: <span>{part.article}</span></div>
+                      </div>
+                    </div>
+                    <div className="part-pricing">
+                      {part.min_price !== null && <>
+                        <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{t('res.pricesFrom')}</div>
+                        <div className="offer-price">{formatPrice(part.min_price)} сом.</div>
+                      </>}
+                      <button className="btn btn-primary btn-sm" onClick={() => goToPart(part.id)}>{t('det.watch')}</button>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>

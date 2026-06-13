@@ -1235,6 +1235,21 @@ select.form-control option { background: var(--bg-obsidian); color: var(--text-p
 .rev-item-stars { color: var(--warning, #e0a020); letter-spacing: 1px; font-size: 0.9rem; }
 .rev-item-text { margin-top: 6px; font-size: 0.9rem; color: var(--text-secondary); line-height: 1.5; }
 .rev-item-date { margin-top: 6px; font-size: 0.75rem; color: var(--text-muted); }
+.part-card { position: relative; }
+.fav-heart {
+  position: absolute; top: 10px; right: 10px; z-index: 3;
+  width: 34px; height: 34px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+  background: var(--bg-card); border: 1px solid var(--border-light); color: var(--text-muted); cursor: pointer;
+  transition: color 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+}
+.fav-heart:hover { color: var(--error); border-color: var(--error); transform: scale(1.1); }
+.fav-heart.on { color: var(--error); border-color: var(--error); }
+.fav-heart.on svg { fill: var(--error); }
+.recent-row-scroll { display: flex; gap: 14px; overflow-x: auto; padding: 4px 2px 10px; }
+.recent-card { flex: 0 0 150px; padding: 14px; border-radius: var(--radius-md, 14px); cursor: pointer; text-align: center; }
+.recent-card .part-img-placeholder { margin: 0 auto 8px; }
+.recent-card-name { font-size: 0.85rem; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.recent-card-price { font-size: 0.85rem; color: var(--accent); font-weight: 700; margin-top: 4px; }
 
 /* ---- Utility text ---- */
 .error-text-line { color: var(--error); font-size: 0.85rem; font-family: monospace; }

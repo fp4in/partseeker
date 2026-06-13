@@ -826,13 +826,33 @@ export const AppProvider = ({ children }) => {
     c.offerId === offerId ? { ...c, qty: Math.max(1, parseInt(qty, 10) || 1) } : c));
   const clearCart = () => setCart([]);
 
-  // --- Просмотры карточек деталей (для статистики продавца) ---
+  // --- Просмотры карточек деталей (для статистики продавца) + история покупателя ---
   const [partViews, setPartViews] = useState(() => JSON.parse(localStorage.getItem('agg_part_views')) || {});
+  const [recentViews, setRecentViews] = useState(() => JSON.parse(localStorage.getItem('agg_recent_views')) || []);
   useEffect(() => { localStorage.setItem('agg_part_views', JSON.stringify(partViews)); }, [partViews]);
+  useEffect(() => { localStorage.setItem('agg_recent_views', JSON.stringify(recentViews)); }, [recentViews]);
   const recordPartView = (partId) => {
     if (!partId) return;
     setPartViews(prev => ({ ...prev, [partId]: (prev[partId] || 0) + 1 }));
+    setRecentViews(prev => [partId, ...prev.filter(id => id !== partId)].slice(0, 20));
   };
+
+  // --- Избранное покупателя (локально) ---
+  const [favorites, setFavorites] = useState(() => JSON.parse(localStorage.getItem('agg_favorites')) || []);
+  useEffect(() => { localStorage.setItem('agg_favorites', JSON.stringify(favorites)); }, [favorites]);
+  const toggleFavorite = (partId) => setFavorites(prev => prev.includes(partId) ? prev.filter(x => x !== partId) : [partId, ...prev].slice(0, 100));
+  const isFavorite = (partId) => favorites.includes(partId);
+
+  // --- Управление товарами продавца ---
+  const updateOfferFields = (offerId, { price, quantity }) => {
+    setOffers(prev => prev.map(o => {
+      if (o.id !== offerId) return o;
+      const q = quantity != null ? Math.max(0, parseInt(quantity, 10) || 0) : o.quantity;
+      const p = price != null ? Math.max(0, parseFloat(price) || 0) : o.price;
+      return { ...o, price: p, quantity: q, is_available: q > 0, updated_at: new Date().toISOString() };
+    }));
+  };
+  const deleteOffer = (offerId) => setOffers(prev => prev.filter(o => o.id !== offerId));
 
   // --- Отзывы и рейтинг магазинов (реальные, локально) ---
   const [reviews, setReviews] = useState(() => JSON.parse(localStorage.getItem('agg_reviews')) || []);
@@ -1507,6 +1527,13 @@ export const AppProvider = ({ children }) => {
       partViews,
       recordPartView,
       addOfferManual,
+      updateOfferFields,
+      deleteOffer,
+      // recently viewed + favorites (buyer)
+      recentViews,
+      favorites,
+      toggleFavorite,
+      isFavorite,
       // reviews / ratings
       reviews,
       addReview,

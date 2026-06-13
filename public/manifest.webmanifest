@@ -1,0 +1,15 @@
+{
+  "name": "PARTSEEKER — автозапчасти Таджикистана",
+  "short_name": "PARTSEEKER",
+  "description": "Поиск автозапчастей по артикулу, VIN и марке авто, сравнение цен магазинов Таджикистана и заказ напрямую.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b0d14",
+  "theme_color": "#0b0d14",
+  "lang": "ru",
+  "icons": [
+    { "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

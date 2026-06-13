@@ -127,6 +127,7 @@ const dict = {
     'rev.send': 'Отправить отзыв', 'rev.none': 'Пока нет отзывов — будьте первым.', 'rev.login': 'Войдите как покупатель, чтобы оставить отзыв.',
     'rev.thanks': 'Спасибо за отзыв!', 'rev.noRating': 'Нет оценок',
     'flt.delivery': 'Срок доставки до, дней', 'flt.minRating': 'Рейтинг магазина от', 'flt.any': 'любой',
+    'fav.title': 'Избранное', 'fav.add': 'В избранное', 'fav.empty': 'В избранном пока пусто.', 'fav.emptyHint': 'Нажимайте ♥ на товарах, чтобы сохранить их сюда.', 'sec.recent': 'Вы недавно смотрели',
 
     // footer
     'foot.about': 'Агрегатор автозапчастей: единый поиск по артикулу, бренду и марке авто. Сравнивайте цены магазинов-партнёров и заказывайте выгодно.',
@@ -254,6 +255,7 @@ const dict = {
     'rev.send': 'Фиристодани шарҳ', 'rev.none': 'Ҳоло шарҳ нест — аввалин бошед.', 'rev.login': 'Барои шарҳ гузоштан ҳамчун харидор ворид шавед.',
     'rev.thanks': 'Ташаккур барои шарҳ!', 'rev.noRating': 'Баҳо нест',
     'flt.delivery': 'Мӯҳлати расонидан то, рӯз', 'flt.minRating': 'Рейтинги мағоза аз', 'flt.any': 'ҳар гуна',
+    'fav.title': 'Интихобшуда', 'fav.add': 'Ба интихобшуда', 'fav.empty': 'Интихобшуда ҳоло холӣ аст.', 'fav.emptyHint': 'Барои нигоҳ доштан тугмаи ♥-ро пахш кунед.', 'sec.recent': 'Ба наздикӣ дидед',
 
     'foot.about': 'Агрегатори эҳтиётқисмҳо: ҷустуҷӯи ягона аз рӯи артикул, бренд ва мошина. Нархҳои шарикро муқоиса кунед.',
     'foot.buyers': 'Ба харидорон', 'foot.shops': 'Ба мағозаҳо', 'foot.contacts': 'Тамос',
@@ -379,6 +381,7 @@ const dict = {
     'rev.send': 'Submit review', 'rev.none': 'No reviews yet — be the first.', 'rev.login': 'Sign in as a buyer to leave a review.',
     'rev.thanks': 'Thanks for your review!', 'rev.noRating': 'No ratings',
     'flt.delivery': 'Delivery time up to, days', 'flt.minRating': 'Shop rating from', 'flt.any': 'any',
+    'fav.title': 'Favorites', 'fav.add': 'Add to favorites', 'fav.empty': 'No favorites yet.', 'fav.emptyHint': 'Tap ♥ on products to save them here.', 'sec.recent': 'Recently viewed',
 
     'foot.about': 'Auto parts aggregator: unified search by part number, brand and vehicle. Compare partner prices and order smart.',
     'foot.buyers': 'For buyers', 'foot.shops': 'For shops', 'foot.contacts': 'Contacts',
