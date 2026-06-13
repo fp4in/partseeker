@@ -1122,6 +1122,15 @@ select.form-control option { background: var(--bg-obsidian); color: var(--text-p
 }
 .buyer-gate-title { font-size: 1.5rem; font-weight: 800; text-align: center; margin: 0; }
 .buyer-gate-sub { color: var(--text-secondary); font-size: 0.92rem; text-align: center; margin: 6px 0 18px; line-height: 1.5; }
+.buyer-role-switch { display: flex; gap: 10px; margin-bottom: 18px; }
+.buyer-role {
+  flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 12px; border-radius: var(--radius-sm, 10px); cursor: pointer; font-weight: 700; font-size: 0.95rem;
+  border: 1.5px solid var(--border-light); background: var(--bg-card); color: var(--text-secondary);
+  transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+}
+.buyer-role:hover { color: var(--text-primary); border-color: var(--border-glow); }
+.buyer-role.is-active { border-color: var(--accent); color: var(--accent); background: var(--accent-glow, rgba(60,180,200,0.10)); }
 .buyer-gate-tabs {
   display: flex;
   gap: 6px;
@@ -1199,6 +1208,9 @@ select.form-control option { background: var(--bg-obsidian); color: var(--text-p
 .cart-shop-head { display: flex; justify-content: space-between; align-items: baseline; font-weight: 700; }
 .cart-shop-head strong { color: var(--accent); }
 .cart-shop-items { font-size: 0.85rem; color: var(--text-secondary); margin-top: 6px; }
+.buyer-profile-card { padding: 16px 18px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+.buyer-profile-name { display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--text-primary); }
+.buyer-profile-sub { font-size: 0.85rem; color: var(--text-muted); margin-top: 3px; }
 .orders-list { display: flex; flex-direction: column; gap: 12px; }
 .order-card { padding: 16px 18px; display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
 .order-card-name { font-weight: 700; color: var(--text-primary); }
@@ -1211,6 +1223,9 @@ select.form-control option { background: var(--bg-obsidian); color: var(--text-p
 .order-status-ready { background: var(--accent-glow, rgba(60,180,200,0.16)); color: var(--accent); }
 .order-status-completed { background: var(--success-glow, rgba(60,200,120,0.16)); color: var(--success); }
 .order-status-cancelled { background: var(--error-glow, rgba(220,60,60,0.14)); color: var(--error); }
+.finance-pill { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-radius: var(--radius-sm, 10px); background: var(--bg-obsidian, var(--bg-card)); border: 1px solid var(--border-light); }
+.finance-pill span { font-size: 0.78rem; color: var(--text-muted); }
+.finance-pill strong { font-size: 1.4rem; }
 
 /* ---- Utility text ---- */
 .error-text-line { color: var(--error); font-size: 0.85rem; font-family: monospace; }

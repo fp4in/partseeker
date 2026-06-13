@@ -12,7 +12,7 @@ import {
   ArrowLeft, Globe, Info, ShoppingCart, Sparkles, TrendingUp,
   ShieldCheck, Truck, Tag, Layers, Star, ChevronRight, ChevronDown, Package, Plus,
   Cpu, Disc, Activity, Compass, Shuffle, Filter, Lightbulb,
-  Thermometer, Wind, Layout, Fuel, Flame, Droplets, Share2
+  Thermometer, Wind, Layout, Fuel, Flame, Droplets, Share2, User
 } from 'lucide-react';
 import { registerBack, haptic, shareContent, hideKeyboard } from '../lib/native';
 
@@ -33,7 +33,7 @@ export default function BuyerDashboard() {
     searchParts, getPartDetails, createOrder,
     t, garage, addToGarage, removeFromGarage,
     orders, buyerUser, cart, addToCart, removeFromCart, setCartQty, clearCart, createOrdersFromCart,
-    recordPartView
+    recordPartView, updateBuyerProfile
   } = useContext(AppContext);
 
   const [currentView, setCurrentView] = useState('home');
@@ -75,6 +75,13 @@ export default function BuyerDashboard() {
   const [checkoutPhone, setCheckoutPhone] = useState('');
   const [checkoutComment, setCheckoutComment] = useState('');
   const [placedOrders, setPlacedOrders] = useState(null); // заказы после оформления (для отправки магазинам)
+
+  // Профиль покупателя (редактирование на экране «Мои заказы»)
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [profName, setProfName] = useState('');
+  const [profPhone, setProfPhone] = useState('');
+  const startEditProfile = () => { setProfName(buyerUser?.name || ''); setProfPhone(buyerUser?.phone || ''); setEditingProfile(true); };
+  const saveProfile = (e) => { e.preventDefault(); updateBuyerProfile({ name: profName.trim() || buyerUser?.name, phone: profPhone.trim() }); setEditingProfile(false); showToast(t('buyer.saved')); };
 
   const cartCount = cart.reduce((n, c) => n + c.qty, 0);
   const cartTotal = cart.reduce((s, c) => s + c.price * c.qty, 0);
@@ -264,7 +271,12 @@ export default function BuyerDashboard() {
     window.open(url, '_blank', 'noopener');
   };
 
-  const openCart = () => { haptic('light'); setPlacedOrders(null); if (!checkoutName && buyerUser?.name) setCheckoutName(buyerUser.name); setCurrentView('cart'); };
+  const openCart = () => {
+    haptic('light'); setPlacedOrders(null);
+    if (!checkoutName && buyerUser?.name) setCheckoutName(buyerUser.name);
+    if (!checkoutPhone && buyerUser?.phone) setCheckoutPhone(buyerUser.phone);
+    setCurrentView('cart');
+  };
 
   // Оформление корзины: создаём заказы (по позиции) и переходим к отправке магазинам.
   const placeCartOrder = (e) => {
@@ -971,6 +983,33 @@ export default function BuyerDashboard() {
       {currentView === 'orders' && (
         <div>
           <h2 className="cart-heading"><ShoppingBag size={22} /> {t('cart.myOrders')}</h2>
+
+          {/* Профиль покупателя */}
+          {buyerUser && (
+            <div className="glass-panel buyer-profile-card">
+              {editingProfile ? (
+                <form onSubmit={saveProfile} style={{ width: '100%' }}>
+                  <div className="form-row">
+                    <div className="form-group" style={{ marginBottom: '10px' }}><label className="form-label">{t('buyer.name')}</label><input className="form-control" value={profName} onChange={(e) => setProfName(e.target.value)} /></div>
+                    <div className="form-group" style={{ marginBottom: '10px' }}><label className="form-label">{t('buyer.phone')}</label><input type="tel" className="form-control" value={profPhone} onChange={(e) => setProfPhone(e.target.value)} placeholder="+992 90 123-45-67" /></div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => setEditingProfile(false)}>{t('common.close')}</button>
+                    <button type="submit" className="btn btn-primary btn-sm">{t('buyer.save')}</button>
+                  </div>
+                </form>
+              ) : (
+                <>
+                  <div className="buyer-profile-info">
+                    <div className="buyer-profile-name"><User size={16} /> {buyerUser.name}</div>
+                    <div className="buyer-profile-sub">{buyerUser.email}{buyerUser.phone ? ` · ${buyerUser.phone}` : ''}</div>
+                  </div>
+                  <button className="btn btn-secondary btn-sm" onClick={startEditProfile}>{t('buyer.profile')}</button>
+                </>
+              )}
+            </div>
+          )}
+
           {myOrders.length === 0 ? (
             <div className="glass-panel" style={{ padding: '46px 24px', textAlign: 'center', maxWidth: '480px', margin: '0 auto' }}>
               <ShoppingBag size={42} style={{ color: 'var(--text-muted)', marginBottom: '14px' }} />

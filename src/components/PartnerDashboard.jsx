@@ -280,6 +280,48 @@ export default function PartnerDashboard() {
   const totalOrdersCount = shopOrders.length;
   const newOrdersCount = shopOrders.filter(o => o.status === 'new').length;
 
+  // --- Бухгалтерия магазина (всё из заказов, без сервера) ---
+  const sumOrders = (list) => list.reduce((s, o) => s + o.price * o.quantity, 0);
+  const completedOrders = shopOrders.filter(o => o.status === 'completed');
+  const pendingOrders = shopOrders.filter(o => ['new', 'accepted', 'ready'].includes(o.status));
+  const cancelledOrders = shopOrders.filter(o => o.status === 'cancelled');
+  const realizedRevenue = sumOrders(completedOrders);     // реализованная выручка (выдано)
+  const pendingRevenue = sumOrders(pendingOrders);        // в работе (ожидается)
+  const unitsSold = completedOrders.reduce((s, o) => s + o.quantity, 0);
+  const avgCheck = completedOrders.length ? Math.round(realizedRevenue / completedOrders.length) : 0;
+  const statusCounts = {
+    new: shopOrders.filter(o => o.status === 'new').length,
+    accepted: shopOrders.filter(o => o.status === 'accepted').length,
+    ready: shopOrders.filter(o => o.status === 'ready').length,
+    completed: completedOrders.length,
+    cancelled: cancelledOrders.length,
+  };
+  // Топ товаров по реализованной выручке
+  const topProducts = Object.values(completedOrders.reduce((acc, o) => {
+    const key = o.part_article + '|' + o.part_name;
+    acc[key] = acc[key] || { name: o.part_name, article: o.part_article, units: 0, revenue: 0 };
+    acc[key].units += o.quantity;
+    acc[key].revenue += o.price * o.quantity;
+    return acc;
+  }, {})).sort((a, b) => b.revenue - a.revenue);
+
+  const downloadBookkeeping = () => {
+    const head = 'Дата,Заказ,Товар,Артикул,Количество,Цена,Сумма,Статус,Покупатель,Телефон\n';
+    const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const rows = shopOrders.map(o => [
+      new Date(o.created_at).toLocaleString(), o.id, o.part_name, o.part_article,
+      o.quantity, o.price, o.price * o.quantity, o.status, o.buyer_name, o.buyer_phone,
+    ].map(esc).join(',')).join('\n');
+    const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), head + rows], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `buhgalteriya_${activeShop.id}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   // Просмотры товаров магазина (реальные, по карточкам деталей)
   const viewsTable = shopOffers
     .map(o => {
@@ -464,6 +506,10 @@ export default function PartnerDashboard() {
           <div className={`partner-menu-item ${activeTab === 'stats' ? 'active' : ''}`} onClick={() => setActiveTab('stats')}>
             <BarChart2 size={18} />
             {t('p.stats')}
+          </div>
+          <div className={`partner-menu-item ${activeTab === 'finance' ? 'active' : ''}`} onClick={() => setActiveTab('finance')}>
+            <DollarSign size={18} />
+            Бухгалтерия
           </div>
         </nav>
       </div>
@@ -970,6 +1016,83 @@ export default function PartnerDashboard() {
                   <span style={{ color: 'var(--text-secondary)' }}>Заявки/заказы (Всего: {totalOrdersCount})</span>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* БУХГАЛТЕРИЯ */}
+        {activeTab === 'finance' && (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '12px' }}>
+              <h2>Бухгалтерия магазина</h2>
+              <button className="btn btn-secondary btn-sm" onClick={downloadBookkeeping} style={{ gap: '6px' }}>
+                <FileText size={16} /> Скачать отчёт CSV
+              </button>
+            </div>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '24px', fontSize: '0.9rem' }}>
+              Учёт продаж и выручки по вашим заказам. «Реализовано» — по выданным заказам, «Ожидается» — по заказам в работе.
+            </p>
+
+            <div className="stats-row">
+              <div className="glass-panel stat-card">
+                <span className="stat-lbl">Выручка реализованная (сом.)</span>
+                <div className="stat-val" style={{ color: 'var(--success)' }}>{realizedRevenue.toLocaleString('ru-RU')}</div>
+              </div>
+              <div className="glass-panel stat-card">
+                <span className="stat-lbl">Ожидается (в работе, сом.)</span>
+                <div className="stat-val" style={{ color: 'var(--warning)' }}>{pendingRevenue.toLocaleString('ru-RU')}</div>
+              </div>
+              <div className="glass-panel stat-card">
+                <span className="stat-lbl">Продано (штук)</span>
+                <div className="stat-val">{unitsSold}</div>
+              </div>
+              <div className="glass-panel stat-card">
+                <span className="stat-lbl">Средний чек (сом.)</span>
+                <div className="stat-val" style={{ color: 'var(--accent)' }}>{avgCheck.toLocaleString('ru-RU')}</div>
+              </div>
+            </div>
+
+            {/* Заказы по статусам */}
+            <div className="glass-panel" style={{ padding: '22px', marginBottom: '24px' }}>
+              <h3 style={{ fontSize: '1.1rem', marginBottom: '14px' }}>Заказы по статусам</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '12px' }}>
+                <div className="finance-pill"><span>Новые</span><strong style={{ color: 'var(--warning)' }}>{statusCounts.new}</strong></div>
+                <div className="finance-pill"><span>Приняты</span><strong style={{ color: 'var(--primary)' }}>{statusCounts.accepted}</strong></div>
+                <div className="finance-pill"><span>Готовы</span><strong style={{ color: 'var(--accent)' }}>{statusCounts.ready}</strong></div>
+                <div className="finance-pill"><span>Выданы</span><strong style={{ color: 'var(--success)' }}>{statusCounts.completed}</strong></div>
+                <div className="finance-pill"><span>Отменены</span><strong style={{ color: 'var(--error)' }}>{statusCounts.cancelled}</strong></div>
+              </div>
+            </div>
+
+            {/* Топ товаров по выручке */}
+            <div className="glass-panel" style={{ padding: '22px' }}>
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.1rem', marginBottom: '14px' }}>
+                <BarChart2 size={18} style={{ color: 'var(--success)' }} /> Топ товаров по выручке
+              </h3>
+              {topProducts.length === 0 ? (
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Пока нет выданных заказов — выручки нет. Данные появятся после первых продаж.</p>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table className="admin-table" style={{ width: '100%' }}>
+                    <thead>
+                      <tr>
+                        <th style={{ textAlign: 'left' }}>Товар</th>
+                        <th style={{ textAlign: 'center' }}>Продано, шт.</th>
+                        <th style={{ textAlign: 'right' }}>Выручка, сом.</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {topProducts.map((p, i) => (
+                        <tr key={i}>
+                          <td style={{ textAlign: 'left' }}>{p.name} <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>({p.article})</span></td>
+                          <td style={{ textAlign: 'center', fontWeight: 700 }}>{p.units}</td>
+                          <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--success)' }}>{p.revenue.toLocaleString('ru-RU')}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
         )}

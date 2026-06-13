@@ -631,20 +631,28 @@ export const AppProvider = ({ children }) => {
   // Mark the active data version (runs after first paint, so the gated loads above see the old/mismatched version first)
   useEffect(() => { localStorage.setItem('agg_data_version', DATA_VERSION); }, []);
 
+  // Восстановление сессии продавца между запусками (хранится id пользователя-партнёра).
+  const savedSeller = (() => { try { return JSON.parse(localStorage.getItem('agg_seller_session') || 'null'); } catch { return null; } })();
+
   // Active User / Session Simulator
-  const [currentRole, setCurrentRole] = useState('buyer'); // 'buyer' | 'partner' | 'admin'
-  const [activePartnerUserId, setActivePartnerUserId] = useState('user-partner-1'); // Default active partner dashboard is Shop 1
+  const [currentRole, setCurrentRole] = useState(savedSeller ? 'partner' : 'buyer'); // 'buyer' | 'partner' | 'admin'
+  const [activePartnerUserId, setActivePartnerUserId] = useState(savedSeller?.userId || 'user-partner-1'); // Default active partner dashboard is Shop 1
 
   // Auth gates (separate entrances per role; admin is hidden)
-  const [partnerAuthed, setPartnerAuthed] = useState(false);
+  const [partnerAuthed, setPartnerAuthed] = useState(!!savedSeller);
   const [adminAuthed, setAdminAuthed] = useState(false);
 
-  // Buyer accounts (локальные, без сервера): список зарегистрированных +
-  // текущая сессия. Пароли хранятся хешем (НЕ криптостойко — это демо без
-  // бэкенда; при появлении сервера проверка переедет на него).
+  const persistSellerSession = (userId) => localStorage.setItem('agg_seller_session', JSON.stringify({ userId }));
+  const clearSellerSession = () => localStorage.removeItem('agg_seller_session');
+
+  // Аккаунты (локальные, без сервера): отдельные списки для покупателей и
+  // продавцов + текущая сессия покупателя. Пароли хранятся хешем (НЕ
+  // криптостойко — это демо без бэкенда; при появлении сервера проверка переедет на него).
   const [buyerAccounts, setBuyerAccounts] = useState(() => JSON.parse(localStorage.getItem('agg_buyer_accounts')) || []);
   const [buyerUser, setBuyerUser] = useState(() => JSON.parse(localStorage.getItem('agg_buyer_user')) || null);
+  const [sellerAccounts, setSellerAccounts] = useState(() => JSON.parse(localStorage.getItem('agg_seller_accounts')) || []);
   useEffect(() => { localStorage.setItem('agg_buyer_accounts', JSON.stringify(buyerAccounts)); }, [buyerAccounts]);
+  useEffect(() => { localStorage.setItem('agg_seller_accounts', JSON.stringify(sellerAccounts)); }, [sellerAccounts]);
   useEffect(() => {
     if (buyerUser) localStorage.setItem('agg_buyer_user', JSON.stringify(buyerUser));
     else localStorage.removeItem('agg_buyer_user');
@@ -697,6 +705,7 @@ export const AppProvider = ({ children }) => {
     setPartnerAuthed(false);
     setAdminAuthed(false);
     setCurrentRole('buyer');
+    clearSellerSession();
     window.location.hash = '';
   };
 
@@ -710,14 +719,18 @@ export const AppProvider = ({ children }) => {
   };
   const validEmail = (m) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(m);
 
-  const registerBuyer = ({ name, email, password }) => {
+  // Войти как покупатель: гасим сессию продавца, чтобы личность была одна.
+  const enterAsBuyer = () => { clearSellerSession(); setPartnerAuthed(false); setCurrentRole('buyer'); };
+
+  const registerBuyer = ({ name, email, password, phone }) => {
     const mail = String(email || '').trim().toLowerCase();
     if (!validEmail(mail)) return { success: false, error: 'badEmail' };
     if (!password || password.length < 4) return { success: false, error: 'shortPass' };
     if (buyerAccounts.some(a => a.email === mail)) return { success: false, error: 'exists' };
-    const acc = { name: String(name || '').trim() || mail.split('@')[0], email: mail, passHash: hashPass(password), createdAt: Date.now() };
+    const acc = { name: String(name || '').trim() || mail.split('@')[0], email: mail, phone: String(phone || '').trim(), passHash: hashPass(password), createdAt: Date.now() };
     setBuyerAccounts(prev => [...prev, acc]);
-    setBuyerUser({ name: acc.name, email: acc.email });
+    enterAsBuyer();
+    setBuyerUser({ name: acc.name, email: acc.email, phone: acc.phone });
     return { success: true };
   };
 
@@ -726,11 +739,66 @@ export const AppProvider = ({ children }) => {
     const acc = buyerAccounts.find(a => a.email === mail);
     if (!acc) return { success: false, error: 'noUser' };
     if (acc.passHash !== hashPass(password || '')) return { success: false, error: 'wrongPass' };
-    setBuyerUser({ name: acc.name, email: acc.email });
+    enterAsBuyer();
+    setBuyerUser({ name: acc.name, email: acc.email, phone: acc.phone || '' });
     return { success: true };
   };
 
   const logoutBuyer = () => setBuyerUser(null);
+
+  // Редактирование профиля покупателя (имя/телефон) — синхроним сессию и аккаунт.
+  const updateBuyerProfile = ({ name, phone }) => {
+    if (!buyerUser) return;
+    const next = { ...buyerUser, name: name ?? buyerUser.name, phone: phone ?? buyerUser.phone };
+    setBuyerUser(next);
+    setBuyerAccounts(prev => prev.map(a => a.email === buyerUser.email ? { ...a, name: next.name, phone: next.phone } : a));
+  };
+
+  // --- Seller auth (local, serverless) ---
+  // Продавец = аккаунт с паролем + магазин. Регистрация создаёт и то, и другое.
+  const registerSeller = ({ name, email, password, phone, shopName, city, plan }) => {
+    const mail = String(email || '').trim().toLowerCase();
+    if (!validEmail(mail)) return { success: false, error: 'badEmail' };
+    if (!password || password.length < 4) return { success: false, error: 'shortPass' };
+    if (!shopName || !String(shopName).trim()) return { success: false, error: 'noShopName' };
+    const taken = sellerAccounts.some(a => a.email === mail) || users.some(u => u.role === 'partner' && u.email.toLowerCase() === mail);
+    if (taken) return { success: false, error: 'exists' };
+    const res = registerPartnerShop({
+      name: String(shopName).trim(), email: mail, phone: String(phone || '').trim(),
+      address: city || 'Душанбе', city: city || 'Душанбе',
+      subscription_plan: plan || 'plan-basic', description: '',
+    });
+    const acc = { name: String(name || shopName).trim(), email: mail, passHash: hashPass(password), phone: String(phone || '').trim(), userId: res.shop.user_id, shopId: res.shop.id, createdAt: Date.now() };
+    setSellerAccounts(prev => [...prev, acc]);
+    persistSellerSession(res.shop.user_id);
+    setBuyerUser(null);
+    return { success: true };
+  };
+
+  const loginSeller = (email, password) => {
+    const mail = String(email || '').trim().toLowerCase();
+    const acc = sellerAccounts.find(a => a.email === mail);
+    if (acc) {
+      if (acc.passHash !== hashPass(password || '')) return { success: false, error: 'wrongPass' };
+      setActivePartnerUserId(acc.userId);
+      setPartnerAuthed(true);
+      setCurrentRole('partner');
+      persistSellerSession(acc.userId);
+      setBuyerUser(null);
+      return { success: true };
+    }
+    // Фолбэк: демо-магазины из начальных данных (вход по e-mail, пароль любой).
+    const demo = users.find(u => u.role === 'partner' && u.email.toLowerCase() === mail);
+    if (demo) {
+      setActivePartnerUserId(demo.id);
+      setPartnerAuthed(true);
+      setCurrentRole('partner');
+      persistSellerSession(demo.id);
+      setBuyerUser(null);
+      return { success: true };
+    }
+    return { success: false, error: 'noUser' };
+  };
 
   // --- Корзина покупателя (локально, без сервера) ---
   const [cart, setCart] = useState(() => JSON.parse(localStorage.getItem('agg_cart')) || []);
@@ -1385,6 +1453,10 @@ export const AppProvider = ({ children }) => {
       registerBuyer,
       loginBuyer,
       logoutBuyer,
+      updateBuyerProfile,
+      // seller auth (local)
+      registerSeller,
+      loginSeller,
       // cart (local)
       cart,
       addToCart,
