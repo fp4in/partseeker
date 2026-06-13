@@ -107,20 +107,29 @@ export async function initKeyboard() {
 }
 
 /* ---- Сеть: следим за онлайн/оффлайн ---- */
-// onChange(connected:boolean) вызывается при каждой смене. Возвращает cleanup.
+// onChange(connected:boolean) вызывается ТОЛЬКО при реальной смене статуса.
+// Android шлёт networkStatusChange и при смене типа сети (Wi-Fi↔моб. данные,
+// скачки сигнала) — все с connected:true; дедупим по предыдущему значению,
+// чтобы не спамить тостом «соединение восстановлено». Возвращает cleanup.
 export async function watchNetwork(onChange) {
+  let last = null;
+  const emit = (connected) => {
+    if (connected === last) return; // нет реальной смены — игнорируем
+    last = connected;
+    onChange(connected);
+  };
   if (!isNative) {
     if (typeof window === 'undefined') return () => {};
-    const on = () => onChange(true), off = () => onChange(false);
+    const on = () => emit(true), off = () => emit(false);
     window.addEventListener('online', on);
     window.addEventListener('offline', off);
-    onChange(navigator.onLine !== false);
+    emit(navigator.onLine !== false);
     return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); };
   }
   try {
     const status = await Network.getStatus();
-    onChange(status.connected);
-    const h = await Network.addListener('networkStatusChange', (s) => onChange(s.connected));
+    emit(status.connected);
+    const h = await Network.addListener('networkStatusChange', (s) => emit(s.connected));
     return () => h.remove();
   } catch { return () => {}; }
 }
