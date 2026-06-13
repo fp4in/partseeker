@@ -4,8 +4,8 @@ import { AppContext } from '../context/AppContext';
 // прайса — чтобы не утяжелять основной бандл кабинета.
 import {
   Upload, FileText, CheckCircle, AlertTriangle, Play,
-  ShoppingBag, Clipboard, BarChart2, DollarSign, 
-  RefreshCw, PlusCircle, Check, X, ShieldAlert, ArrowRight
+  ShoppingBag, Clipboard, BarChart2, DollarSign,
+  RefreshCw, PlusCircle, Check, X, ShieldAlert, ArrowRight, Eye, Phone, Tag
 } from 'lucide-react';
 
 export default function PartnerDashboard() {
@@ -13,13 +13,17 @@ export default function PartnerDashboard() {
     activeShop,
     orders,
     offers,
+    parts,
+    categories,
+    partViews,
     plans,
     parsingLogs,
     t,
     registerPartnerShop,
     updateShopProfile,
     updateOrderStatus,
-    parseAndApplyPricelist
+    parseAndApplyPricelist,
+    addOfferManual
   } = useContext(AppContext);
 
   // Active sub-view
@@ -42,6 +46,25 @@ export default function PartnerDashboard() {
 
   // Orders filters
   const [orderFilterStatus, setOrderFilterStatus] = useState('all');
+
+  // Ручное добавление товара (с выбором категории)
+  const [manualForm, setManualForm] = useState({
+    category_id: 'cat-engine', article: '', brand: '', name: '',
+    price: '', quantity: '', delivery_days: '0', make: '', model: ''
+  });
+  const [manualMsg, setManualMsg] = useState(null); // { ok, text }
+  const setMF = (k, v) => { setManualForm(prev => ({ ...prev, [k]: v })); setManualMsg(null); };
+
+  const handleAddManual = (e) => {
+    e.preventDefault();
+    const res = addOfferManual({ shopId: activeShop.id, ...manualForm });
+    if (res.success) {
+      setManualMsg({ ok: true, text: res.updated ? 'Товар обновлён в каталоге.' : 'Товар добавлен в каталог.' });
+      setManualForm(prev => ({ ...prev, article: '', brand: '', name: '', price: '', quantity: '', make: '', model: '' }));
+    } else {
+      setManualMsg({ ok: false, text: res.error });
+    }
+  };
 
   // Edit profile state
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -95,11 +118,11 @@ export default function PartnerDashboard() {
 
   // Export template CSV
   const downloadTemplate = () => {
-    const csvContent = 
-      "Артикул,Бренд,Название,Цена,Количество,Марка,Модель,Год от,Год до,Срок доставки\n" +
-      "OC90,Knecht-Mahle,Масляный фильтр OC90,450,15,Lada,Vesta,2015,,0\n" +
-      "W71294,Mann-Filter,Масляный фильтр Mann W712/94,490,8,Volkswagen,Polo,2012,2020,0\n" +
-      "SP1399,Sangsin,Тормозные колодки дисковые,1950,22,Hyundai,Solaris,2017,,1\n";
+    const csvContent =
+      "Артикул,Бренд,Название,Категория,Цена,Количество,Марка,Модель,Год от,Год до,Срок доставки\n" +
+      "OC90,Knecht-Mahle,Масляный фильтр OC90,Фильтры,450,15,Lada,Vesta,2015,,0\n" +
+      "W71294,Mann-Filter,Масляный фильтр Mann W712/94,Фильтры,490,8,Volkswagen,Polo,2012,2020,0\n" +
+      "SP1399,Sangsin,Тормозные колодки дисковые,Тормозная система,1950,22,Hyundai,Solaris,2017,,1\n";
     
     // Create blob and download
     const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: 'text/csv;charset=utf-8;' }); // UTF-8 BOM
@@ -110,6 +133,17 @@ export default function PartnerDashboard() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  // Сопоставление текста категории из прайса с id категории каталога.
+  const mapCategory = (val) => {
+    if (!val) return undefined;
+    const s = String(val).trim().toLowerCase();
+    const byId = categories.find(c => c.id.toLowerCase() === s);
+    if (byId) return byId.id;
+    const byName = categories.find(c =>
+      c.name.toLowerCase() === s || c.name.toLowerCase().includes(s) || s.includes(c.name.toLowerCase()));
+    return byName ? byName.id : undefined;
   };
 
   // Handle file drop & select parsing
@@ -145,7 +179,8 @@ export default function PartnerDashboard() {
                 model: findVal(['model', 'модель', 'модель авто']),
                 year_from: findVal(['year_from', 'год от', 'год_от']),
                 year_to: findVal(['year_to', 'год до', 'год_до']),
-                delivery_days: findVal(['delivery_days', 'срок', 'срок доставки', 'срок_доставки'])
+                delivery_days: findVal(['delivery_days', 'срок', 'срок доставки', 'срок_доставки']),
+                category_id: mapCategory(findVal(['category', 'категория', 'раздел', 'группа']))
               };
             });
 
@@ -186,7 +221,8 @@ export default function PartnerDashboard() {
               model: findVal(['model', 'модель', 'модель авто']),
               year_from: findVal(['year_from', 'год от', 'год_от']),
               year_to: findVal(['year_to', 'год до', 'год_до']),
-              delivery_days: findVal(['delivery_days', 'срок', 'срок доставки', 'срок_доставки'])
+              delivery_days: findVal(['delivery_days', 'срок', 'срок доставки', 'срок_доставки']),
+              category_id: mapCategory(findVal(['category', 'категория', 'раздел', 'группа']))
             };
           });
 
@@ -243,6 +279,15 @@ export default function PartnerDashboard() {
   const totalRevenue = shopOrders.filter(o => o.status === 'completed').reduce((sum, o) => sum + (o.price * o.quantity), 0);
   const totalOrdersCount = shopOrders.length;
   const newOrdersCount = shopOrders.filter(o => o.status === 'new').length;
+
+  // Просмотры товаров магазина (реальные, по карточкам деталей)
+  const viewsTable = shopOffers
+    .map(o => {
+      const p = parts.find(pp => pp.id === o.part_id);
+      return { offerId: o.id, name: p?.name || o.raw_name, views: (p && partViews[p.id]) || 0, qty: o.quantity, price: o.price };
+    })
+    .sort((a, b) => b.views - a.views);
+  const totalViews = viewsTable.reduce((sum, r) => sum + r.views, 0);
 
   // Render registration screen if no active shop
   if (!activeShop) {
@@ -507,10 +552,46 @@ export default function PartnerDashboard() {
         {/* PRICELIST TAB */}
         {activeTab === 'pricelist' && (
           <div>
+            {/* Ручное добавление товара с выбором категории */}
+            <div className="glass-panel" style={{ padding: '22px', marginBottom: '28px', borderLeft: '4px solid var(--accent)' }}>
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.15rem', marginBottom: '6px' }}>
+                <PlusCircle size={20} style={{ color: 'var(--accent)' }} /> Добавить товар вручную
+              </h3>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', marginBottom: '18px' }}>
+                Разместите одну позицию и сразу выберите для неё <strong>категорию</strong> — так покупатели найдут её в нужном разделе каталога.
+              </p>
+              <form onSubmit={handleAddManual}>
+                <div className="form-group">
+                  <label className="form-label"><Tag size={13} style={{ verticalAlign: '-1px', marginRight: '4px' }} />Категория *</label>
+                  <select className="form-control" required value={manualForm.category_id} onChange={(e) => setMF('category_id', e.target.value)}>
+                    {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+                <div className="form-row">
+                  <div className="form-group"><label className="form-label">Артикул *</label><input className="form-control" required placeholder="OC90" value={manualForm.article} onChange={(e) => setMF('article', e.target.value)} /></div>
+                  <div className="form-group"><label className="form-label">Бренд *</label><input className="form-control" required placeholder="Mann-Filter" value={manualForm.brand} onChange={(e) => setMF('brand', e.target.value)} /></div>
+                </div>
+                <div className="form-group"><label className="form-label">Название *</label><input className="form-control" required placeholder="Масляный фильтр Mann W712/94" value={manualForm.name} onChange={(e) => setMF('name', e.target.value)} /></div>
+                <div className="form-row">
+                  <div className="form-group"><label className="form-label">Цена (сом.) *</label><input type="number" min="0" className="form-control" required placeholder="490" value={manualForm.price} onChange={(e) => setMF('price', e.target.value)} /></div>
+                  <div className="form-group"><label className="form-label">Количество *</label><input type="number" min="0" className="form-control" required placeholder="10" value={manualForm.quantity} onChange={(e) => setMF('quantity', e.target.value)} /></div>
+                  <div className="form-group"><label className="form-label">Срок (дней)</label><input type="number" min="0" className="form-control" placeholder="0" value={manualForm.delivery_days} onChange={(e) => setMF('delivery_days', e.target.value)} /></div>
+                </div>
+                <div className="form-row">
+                  <div className="form-group"><label className="form-label">Марка авто</label><input className="form-control" placeholder="Hyundai (необязательно)" value={manualForm.make} onChange={(e) => setMF('make', e.target.value)} /></div>
+                  <div className="form-group"><label className="form-label">Модель</label><input className="form-control" placeholder="Solaris (необязательно)" value={manualForm.model} onChange={(e) => setMF('model', e.target.value)} /></div>
+                </div>
+                {manualMsg && (
+                  <div className={manualMsg.ok ? 'success-text-line' : 'error-text-line'} style={{ marginBottom: '12px' }}>{manualMsg.text}</div>
+                )}
+                <button type="submit" className="btn btn-accent" style={{ gap: '6px' }}><PlusCircle size={16} /> Добавить в каталог</button>
+              </form>
+            </div>
+
             <h2>Загрузка прайс-листа</h2>
             <p style={{ color: 'var(--text-secondary)', marginBottom: '24px', fontSize: '0.9rem' }}>
               Загрузите прайс в формате <strong>Excel (.xlsx, .xls)</strong> или <strong>CSV</strong>. Файл должен содержать колонки:{' '}
-              <strong style={{ color: 'var(--text-primary)' }}>Артикул, Бренд, Название, Цена, Количество</strong>. Шаблон можно скачать ниже.
+              <strong style={{ color: 'var(--text-primary)' }}>Артикул, Бренд, Название, Категория, Цена, Количество</strong>. Колонка «Категория» направит товар в нужный раздел (если её нет — товар попадёт в «Расходники»). Шаблон можно скачать ниже.
             </p>
 
             <div style={{ display: 'flex', gap: '12px', marginBottom: '24px' }}>
@@ -686,6 +767,15 @@ export default function PartnerDashboard() {
                         <div style={{ marginTop: '10px', borderTop: '1px solid var(--border-light)', paddingTop: '10px' }}>
                           <div>Покупатель: <strong>{order.buyer_name}</strong></div>
                           <div>Телефон: <a href={`tel:${order.buyer_phone}`} style={{ color: 'var(--accent)' }}>{order.buyer_phone}</a></div>
+                          <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                            <a className="btn btn-success btn-sm" style={{ gap: '5px' }}
+                              href={`https://wa.me/${(order.buyer_phone || '').replace(/[^\d]/g, '')}`} target="_blank" rel="noreferrer">
+                              <Phone size={13} /> WhatsApp
+                            </a>
+                            <a className="btn btn-secondary btn-sm" style={{ gap: '5px' }} href={`tel:${order.buyer_phone}`}>
+                              <Phone size={13} /> Позвонить
+                            </a>
+                          </div>
                           {order.comment && (
                             <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px', fontStyle: 'italic' }}>
                               Комментарий: "{order.comment}"
@@ -774,6 +864,10 @@ export default function PartnerDashboard() {
                 <div className="stat-val">{shopOffers.length}</div>
               </div>
               <div className="glass-panel stat-card">
+                <span className="stat-lbl">Просмотров товаров</span>
+                <div className="stat-val" style={{ color: 'var(--accent)' }}>{totalViews}</div>
+              </div>
+              <div className="glass-panel stat-card">
                 <span className="stat-lbl">Всего лидов (заявок)</span>
                 <div className="stat-val">{totalOrdersCount}</div>
               </div>
@@ -782,11 +876,46 @@ export default function PartnerDashboard() {
                 <div className="stat-val" style={{ color: 'var(--success)' }}>{totalRevenue}</div>
               </div>
               <div className="glass-panel stat-card">
-                <span className="stat-lbl">Конверсия в заказ</span>
+                <span className="stat-lbl">Конверсия (заказ/просмотр)</span>
                 <div className="stat-val" style={{ color: 'var(--primary)' }}>
-                  {totalOrdersCount > 0 ? `${Math.round((totalOrdersCount / 124) * 100)}%` : '0%'}
+                  {totalViews > 0 ? `${Math.round((totalOrdersCount / totalViews) * 100)}%` : '—'}
                 </div>
               </div>
+            </div>
+
+            {/* Реальная таблица просмотров по товарам */}
+            <div className="glass-panel" style={{ padding: '22px', marginBottom: '24px' }}>
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.1rem', marginBottom: '14px' }}>
+                <Eye size={18} style={{ color: 'var(--accent)' }} /> Просмотры ваших товаров
+              </h3>
+              {viewsTable.length === 0 ? (
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Пока нет товаров. Добавьте их во вкладке «Прайс-лист».</p>
+              ) : totalViews === 0 ? (
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Просмотров пока нет. Они появятся, когда покупатели начнут открывать карточки ваших деталей.</p>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table className="admin-table" style={{ width: '100%' }}>
+                    <thead>
+                      <tr>
+                        <th style={{ textAlign: 'left' }}>Товар</th>
+                        <th style={{ textAlign: 'center' }}>Просмотры</th>
+                        <th style={{ textAlign: 'center' }}>В наличии</th>
+                        <th style={{ textAlign: 'right' }}>Цена</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {viewsTable.filter(r => r.views > 0).map(r => (
+                        <tr key={r.offerId}>
+                          <td style={{ textAlign: 'left' }}>{r.name}</td>
+                          <td style={{ textAlign: 'center', fontWeight: 700, color: 'var(--accent)' }}>{r.views}</td>
+                          <td style={{ textAlign: 'center' }}>{r.qty} шт.</td>
+                          <td style={{ textAlign: 'right' }}>{r.price} сом.</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
 
             {/* Performance charts mockup */}
@@ -834,11 +963,11 @@ export default function PartnerDashboard() {
               <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', marginTop: '16px', fontSize: '0.8rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <span style={{ width: '12px', height: '12px', background: 'var(--border-light)', display: 'inline-block', borderRadius: '2px' }}></span>
-                  <span style={{ color: 'var(--text-secondary)' }}>Показы в поиске (Всего: 345)</span>
+                  <span style={{ color: 'var(--text-secondary)' }}>Просмотры карточек (Всего: {totalViews})</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <span style={{ width: '12px', height: '12px', background: 'var(--accent)', display: 'inline-block', borderRadius: '2px' }}></span>
-                  <span style={{ color: 'var(--text-secondary)' }}>Клики на контакты/заказ (Всего: 124)</span>
+                  <span style={{ color: 'var(--text-secondary)' }}>Заявки/заказы (Всего: {totalOrdersCount})</span>
                 </div>
               </div>
             </div>

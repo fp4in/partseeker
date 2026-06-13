@@ -2,6 +2,7 @@ import React, { useContext, useState, useEffect, useRef, lazy, Suspense } from '
 import { AnimatePresence, motion } from 'framer-motion';
 import { AppContext } from './context/AppContext';
 import BuyerDashboard from './components/BuyerDashboard';
+import BuyerAuthGate from './components/BuyerAuthGate';
 import PageLoader from './components/motion/PageLoader';
 
 // Тяжёлые кабинеты (тянут xlsx и пр.) грузим лениво — публичная
@@ -119,7 +120,7 @@ function SiteFooter({ onOpen }) {
 }
 
 function App() {
-  const { currentRole, theme, toggleTheme, t, partnerAuthed, adminAuthed, logout } = useContext(AppContext);
+  const { currentRole, theme, toggleTheme, t, partnerAuthed, adminAuthed, logout, buyerUser, logoutBuyer } = useContext(AppContext);
 
   const [showPartnerLogin, setShowPartnerLogin] = useState(false);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
@@ -227,7 +228,8 @@ function App() {
   const isLoggedIn = (currentRole === 'partner' && partnerAuthed) || (currentRole === 'admin' && adminAuthed);
 
   const activeRole = currentRole === 'partner' && partnerAuthed ? 'partner'
-    : currentRole === 'admin' && adminAuthed ? 'admin' : 'buyer';
+    : currentRole === 'admin' && adminAuthed ? 'admin'
+    : currentRole === 'buyer' && !buyerUser ? 'gate' : 'buyer';
 
   return (
     <div className="app-container">
@@ -267,6 +269,11 @@ function App() {
               <button className="btn-ghost-login" onClick={() => { haptic('medium'); logout(); }}>
                 <LogOut size={16} /> <span className="hide-mobile">{t('btn.logout')}</span>
               </button>
+            ) : currentRole === 'buyer' && buyerUser ? (
+              <button className="btn-ghost-login" onClick={() => { haptic('medium'); logoutBuyer(); }}
+                title={t('buyer.hi', { name: buyerUser.name })}>
+                <LogOut size={16} /> <span className="hide-mobile">{t('buyer.logout')}</span>
+              </button>
             ) : (
               <button className="btn-ghost-login" onClick={() => { haptic('light'); setShowPartnerLogin(true); }}>
                 <LogIn size={16} /> <span className="hide-mobile">{t('btn.partnerLogin')}</span>
@@ -287,7 +294,7 @@ function App() {
             style={{ willChange: 'transform, opacity' }}
           >
             <Suspense fallback={<div className="lazy-fallback"><span className="spin-loader" /></div>}>
-              {currentRole === 'buyer' && <BuyerDashboard />}
+              {currentRole === 'buyer' && (buyerUser ? <BuyerDashboard /> : <BuyerAuthGate />)}
               {currentRole === 'partner' && partnerAuthed && <PartnerDashboard />}
               {currentRole === 'admin' && adminAuthed && <AdminDashboard />}
             </Suspense>

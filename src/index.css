@@ -1094,6 +1094,124 @@ select.form-control option { background: var(--bg-obsidian); color: var(--text-p
 
 @keyframes popIn { from { opacity: 0; transform: scale(0.85); } to { opacity: 1; transform: scale(1); } }
 
+/* ---- Buyer auth gate (полноэкранный вход покупателя) ---- */
+.buyer-gate {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - 220px);
+  padding: 32px 18px;
+}
+.buyer-gate-card {
+  width: 100%;
+  max-width: 420px;
+  padding: 34px 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.buyer-gate-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-weight: 800;
+  font-size: 1.25rem;
+  letter-spacing: 0.5px;
+  margin-bottom: 14px;
+}
+.buyer-gate-title { font-size: 1.5rem; font-weight: 800; text-align: center; margin: 0; }
+.buyer-gate-sub { color: var(--text-secondary); font-size: 0.92rem; text-align: center; margin: 6px 0 18px; line-height: 1.5; }
+.buyer-gate-tabs {
+  display: flex;
+  gap: 6px;
+  background: var(--bg-card-solid, rgba(120,130,160,0.12));
+  border-radius: var(--radius-sm, 10px);
+  padding: 4px;
+  margin-bottom: 18px;
+}
+.buyer-gate-tab {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.92rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+.buyer-gate-tab.is-active { background: var(--primary); color: #fff; }
+.buyer-gate-note { font-size: 0.78rem; color: var(--text-muted); text-align: center; margin: 12px 0 0; }
+.input-with-icon { position: relative; display: flex; align-items: center; }
+.input-with-icon svg { position: absolute; left: 12px; color: var(--text-muted); pointer-events: none; }
+.input-with-icon .form-control { padding-left: 38px; width: 100%; }
+
+/* ---- Buyer toolbar (Мои заказы + Корзина) ---- */
+.buyer-toolbar { display: flex; justify-content: flex-end; gap: 10px; margin-bottom: 16px; }
+.buyer-tool-btn {
+  position: relative;
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 9px 14px; border-radius: var(--radius-sm, 10px);
+  border: 1px solid var(--border-light); background: var(--bg-card);
+  color: var(--text-secondary); font-weight: 600; font-size: 0.9rem; cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+}
+.buyer-tool-btn:hover { color: var(--text-primary); border-color: var(--border-glow); }
+.buyer-tool-btn.is-active { color: var(--text-primary); border-color: var(--primary); }
+.buyer-tool-count {
+  min-width: 19px; height: 19px; padding: 0 5px; border-radius: 10px;
+  background: var(--primary); color: #fff; font-size: 0.72rem; font-weight: 700;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.buyer-tool-count.accent { background: var(--accent); }
+
+/* ---- Cart + orders ---- */
+.cart-heading { display: flex; align-items: center; gap: 10px; font-size: 1.5rem; font-weight: 800; margin: 4px 0 22px; }
+.cart-grid { display: grid; grid-template-columns: 1fr 340px; gap: 20px; align-items: start; }
+@media (max-width: 860px) { .cart-grid { grid-template-columns: 1fr; } }
+.cart-item { display: flex; align-items: center; gap: 14px; padding: 14px 0; border-bottom: 1px solid var(--border-light); }
+.cart-item:last-child { border-bottom: none; }
+.cart-item-info { flex: 1; min-width: 0; }
+.cart-item-name { font-weight: 700; color: var(--text-primary); }
+.cart-item-sub { font-size: 0.82rem; color: var(--text-muted); margin-top: 2px; }
+.cart-item-price { font-size: 0.9rem; color: var(--accent); font-weight: 600; margin-top: 4px; }
+.cart-qty { display: flex; align-items: center; gap: 4px; }
+.cart-qty button {
+  width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--border-light);
+  background: var(--bg-card); color: var(--text-primary); font-size: 1.1rem; cursor: pointer; line-height: 1;
+}
+.cart-qty button:hover { border-color: var(--primary); }
+.cart-qty span { min-width: 26px; text-align: center; font-weight: 700; }
+.cart-item-remove { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 6px; border-radius: 8px; }
+.cart-item-remove:hover { color: var(--error); background: var(--error-glow, rgba(220,60,60,0.12)); }
+.cart-summary { position: sticky; top: 90px; }
+.cart-total-row { display: flex; justify-content: space-between; align-items: baseline; font-size: 1.05rem; margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--border-light); }
+.cart-total-row strong { font-size: 1.35rem; color: var(--accent); }
+.cart-success-icon {
+  width: 64px; height: 64px; border-radius: 50%; margin: 0 auto 14px;
+  background: var(--success-glow, rgba(60,200,120,0.15)); border: 2px solid var(--success);
+  color: var(--success); display: flex; align-items: center; justify-content: center;
+  animation: popIn 0.4s var(--ease-spring);
+}
+.cart-shop-block { padding: 14px 0; border-top: 1px solid var(--border-light); }
+.cart-shop-head { display: flex; justify-content: space-between; align-items: baseline; font-weight: 700; }
+.cart-shop-head strong { color: var(--accent); }
+.cart-shop-items { font-size: 0.85rem; color: var(--text-secondary); margin-top: 6px; }
+.orders-list { display: flex; flex-direction: column; gap: 12px; }
+.order-card { padding: 16px 18px; display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+.order-card-name { font-weight: 700; color: var(--text-primary); }
+.order-card-sub { font-size: 0.85rem; color: var(--text-secondary); margin-top: 2px; }
+.order-card-meta { font-size: 0.78rem; color: var(--text-muted); margin-top: 6px; }
+.order-card-side { display: flex; align-items: center; gap: 12px; }
+.order-status { font-size: 0.78rem; padding: 5px 10px; }
+.order-status-new { background: var(--warning-glow, rgba(230,170,40,0.16)); color: var(--warning, #e0a020); }
+.order-status-accepted { background: var(--primary-glow, rgba(80,120,240,0.16)); color: var(--primary); }
+.order-status-ready { background: var(--accent-glow, rgba(60,180,200,0.16)); color: var(--accent); }
+.order-status-completed { background: var(--success-glow, rgba(60,200,120,0.16)); color: var(--success); }
+.order-status-cancelled { background: var(--error-glow, rgba(220,60,60,0.14)); color: var(--error); }
+
 /* ---- Utility text ---- */
 .error-text-line { color: var(--error); font-size: 0.85rem; font-family: monospace; }
 .success-text-line { color: var(--success); font-size: 0.85rem; font-family: monospace; }

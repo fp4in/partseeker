@@ -31,7 +31,9 @@ export default function BuyerDashboard() {
   const {
     shops, parts, offers, categories, vehicles,
     searchParts, getPartDetails, createOrder,
-    t, garage, addToGarage, removeFromGarage
+    t, garage, addToGarage, removeFromGarage,
+    orders, buyerUser, cart, addToCart, removeFromCart, setCartQty, clearCart, createOrdersFromCart,
+    recordPartView
   } = useContext(AppContext);
 
   const [currentView, setCurrentView] = useState('home');
@@ -68,6 +70,22 @@ export default function BuyerDashboard() {
   const [lastOrder, setLastOrder] = useState(null); // для отправки заказа магазину
   const [toast, setToast] = useState('');
 
+  // Оформление корзины
+  const [checkoutName, setCheckoutName] = useState('');
+  const [checkoutPhone, setCheckoutPhone] = useState('');
+  const [checkoutComment, setCheckoutComment] = useState('');
+  const [placedOrders, setPlacedOrders] = useState(null); // заказы после оформления (для отправки магазинам)
+
+  const cartCount = cart.reduce((n, c) => n + c.qty, 0);
+  const cartTotal = cart.reduce((s, c) => s + c.price * c.qty, 0);
+  const myOrders = useMemo(
+    () => (buyerUser ? orders.filter(o => o.buyer_email && o.buyer_email === buyerUser.email) : []),
+    [orders, buyerUser]
+  );
+
+  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 2000); };
+  const handleAddToCart = (offer, part) => { haptic('light'); addToCart(offer, part); showToast(t('cart.added')); };
+
   const handleShare = async (title, text) => {
     haptic('light');
     const url = typeof window !== 'undefined' ? window.location.href : '';
@@ -92,7 +110,7 @@ export default function BuyerDashboard() {
     return registerBack(() => {
       if (orderOffer) { setOrderOffer(null); return true; }
       if (currentView === 'detail') { setCurrentView('results'); return true; }
-      if (currentView === 'results' || currentView === 'shop') { setCurrentView('home'); return true; }
+      if (currentView === 'results' || currentView === 'shop' || currentView === 'cart' || currentView === 'orders') { setCurrentView('home'); return true; }
       return false;
     }, 0);
   }, [currentView, orderOffer]);
@@ -140,7 +158,7 @@ export default function BuyerDashboard() {
 
   const openCatalog = () => { setSearchQuery(''); setSelectedCategory(''); setVinContext(''); setShowSuggestions(false); setCurrentView('results'); };
   const handleCategoryClick = (catId) => { haptic('light'); setSelectedCategory(catId); setSearchQuery(''); setVinContext(''); setShowSuggestions(false); setCurrentView('results'); };
-  const goToPart = (partId) => { haptic('light'); setSelectedPartId(partId); setOrderSuccessMsg(null); setShowSuggestions(false); setCurrentView('detail'); };
+  const goToPart = (partId) => { haptic('light'); recordPartView(partId); setSelectedPartId(partId); setOrderSuccessMsg(null); setShowSuggestions(false); setCurrentView('detail'); };
 
   const applyGarageCar = (v) => {
     setSelectedMake(v.make); setSelectedModel(v.model); setSelectedYear(String(v.year)); setSelectedEngine(v.engine || '');
@@ -204,7 +222,7 @@ export default function BuyerDashboard() {
   const handlePlaceOrder = (e) => {
     e.preventDefault();
     if (!orderOffer || !buyerName || !buyerPhone) return;
-    const res = createOrder(orderOffer.id, buyerName, buyerPhone, orderQty, orderComment);
+    const res = createOrder(orderOffer.id, buyerName, buyerPhone, orderQty, orderComment, buyerUser?.email || null);
     if (res.success) {
       haptic('medium');
       setOrderSuccessMsg(res.order.id);
@@ -246,6 +264,67 @@ export default function BuyerDashboard() {
     window.open(url, '_blank', 'noopener');
   };
 
+  const openCart = () => { haptic('light'); setPlacedOrders(null); if (!checkoutName && buyerUser?.name) setCheckoutName(buyerUser.name); setCurrentView('cart'); };
+
+  // Оформление корзины: создаём заказы (по позиции) и переходим к отправке магазинам.
+  const placeCartOrder = (e) => {
+    e.preventDefault();
+    if (!cart.length || !checkoutName || !checkoutPhone) return;
+    const items = cart.map(c => ({ offerId: c.offerId, quantity: c.qty }));
+    const res = createOrdersFromCart(items, checkoutName, checkoutPhone, checkoutComment, buyerUser?.email || null);
+    if (res.success) {
+      haptic('medium');
+      setPlacedOrders(res.orders);
+      clearCart();
+      setCheckoutComment('');
+    }
+  };
+
+  // Группировка заказов по магазину (для блоков отправки после оформления).
+  const groupByShop = (list) => {
+    const map = {};
+    list.forEach(o => { (map[o.shop_id] = map[o.shop_id] || []).push(o); });
+    return Object.entries(map); // [[shopId, orders[]], ...]
+  };
+
+  const buildShopOrderText = (shopOrders) => {
+    const first = shopOrders[0];
+    return [
+      `🔧 ${t('ord.waHeader')} PARTSEEKER`, '',
+      ...shopOrders.map(o => `• ${o.part_name} (${o.part_brand}) ×${o.quantity} — ${formatPrice(o.price * o.quantity)} сом.`),
+      '',
+      `${t('cart.total')}: ${formatPrice(shopOrders.reduce((s, o) => s + o.price * o.quantity, 0))} сом.`,
+      '',
+      `${t('ord.name')}: ${first.buyer_name}`,
+      `${t('ord.phone')}: ${first.buyer_phone}`,
+      first.comment ? `${t('ord.comment')}: ${first.comment}` : '',
+    ].filter(Boolean).join('\n');
+  };
+
+  const sendShopOrders = (shopId, shopOrders, channel) => {
+    haptic('light');
+    const shop = shops.find(s => s.id === shopId);
+    const phone = (shop?.phone || '').replace(/[^\d]/g, '');
+    if (!phone) { showToast(t('ord.noPhone')); return; }
+    const text = buildShopOrderText(shopOrders);
+    const url = channel === 'tg'
+      ? `https://t.me/+${phone}?text=${encodeURIComponent(text)}`
+      : `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank', 'noopener');
+  };
+
+  // Повтор заказа: возвращаем позицию в корзину (если оффер ещё существует).
+  const repeatOrder = (order) => {
+    const offer = offers.find(o => o.id === order.offer_id);
+    if (!offer) return; // оффер больше не существует
+    const part = parts.find(p => p.id === offer.part_id);
+    addToCart(offer, part, order.quantity);
+    showToast(t('cart.added'));
+    openCart();
+  };
+
+  const orderStatusLabel = (s) => t(`cart.st.${s}`) || s;
+
   const handleBrandFilterToggle = (b) => setSelectedBrands(prev => prev.includes(b) ? prev.filter(x => x !== b) : [...prev, b]);
   const handleShopFilterToggle = (id) => setSelectedShops(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   const clearCarFilter = () => { setSelectedMake(''); setSelectedModel(''); setSelectedYear(''); setSelectedEngine(''); };
@@ -268,6 +347,19 @@ export default function BuyerDashboard() {
 
   return (
     <div className="fade-in">
+      {/* Панель покупателя: «Мои заказы» + корзина (видна на всех экранах) */}
+      <div className="buyer-toolbar">
+        <button className={`buyer-tool-btn ${currentView === 'orders' ? 'is-active' : ''}`}
+          onClick={() => { haptic('light'); setCurrentView('orders'); }}>
+          <ShoppingBag size={16} /> <span className="hide-mobile">{t('cart.myOrders')}</span>
+          {myOrders.length > 0 && <span className="buyer-tool-count">{myOrders.length}</span>}
+        </button>
+        <button className={`buyer-tool-btn ${currentView === 'cart' ? 'is-active' : ''}`} onClick={openCart}>
+          <ShoppingCart size={16} /> <span className="hide-mobile">{t('cart.title')}</span>
+          {cartCount > 0 && <span className="buyer-tool-count accent">{cartCount}</span>}
+        </button>
+      </div>
+
       {currentView !== 'home' && (
         <div className="glass-panel" style={{ padding: '12px 18px', marginBottom: '24px', display: 'flex', flexWrap: 'wrap', gap: '14px', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
@@ -670,7 +762,10 @@ export default function BuyerDashboard() {
                         <td>{offer.delivery_days === 0 ? <span style={{ color: 'var(--success)', fontWeight: 'bold' }}>{t('det.today')}</span> : <span>{offer.delivery_days} {offer.delivery_days === 1 ? t('det.day') : t('det.days')}</span>}</td>
                         <td>{offer.quantity} {t('unit.pcs')}</td>
                         <td><span className="offer-price">{formatPrice(offer.price)} сом.</span>{idx === 0 && <div><span className="badge badge-success" style={{ fontSize: '0.6rem', marginTop: '4px' }}>{t('det.bestTag')}</span></div>}</td>
-                        <td style={{ textAlign: 'right' }}><button className="btn btn-accent btn-sm" onClick={() => { setOrderOffer(offer); setOrderSuccessMsg(null); }}><ShoppingCart size={14} /> {t('det.order')}</button></td>
+                        <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          <button className="btn btn-secondary btn-sm" style={{ marginRight: '6px' }} title={t('cart.add')} onClick={() => handleAddToCart(offer, parts.find(p => p.id === offer.part_id))}><Plus size={14} /></button>
+                          <button className="btn btn-accent btn-sm" onClick={() => { setOrderOffer(offer); setOrderSuccessMsg(null); }}><ShoppingCart size={14} /> {t('det.order')}</button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -786,7 +881,10 @@ export default function BuyerDashboard() {
                         <td>{offer.part_article}</td>
                         <td>{offer.quantity} {t('unit.pcs')}</td>
                         <td><span className="offer-price">{formatPrice(offer.price)} сом.</span></td>
-                        <td style={{ textAlign: 'right' }}><button className="btn btn-accent btn-sm" onClick={() => { setOrderOffer(offer); setOrderSuccessMsg(null); }}><ShoppingCart size={14} /> {t('det.order')}</button></td>
+                        <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          <button className="btn btn-secondary btn-sm" style={{ marginRight: '6px' }} title={t('cart.add')} onClick={() => handleAddToCart(offer, parts.find(p => p.id === offer.part_id))}><Plus size={14} /></button>
+                          <button className="btn btn-accent btn-sm" onClick={() => { setOrderOffer(offer); setOrderSuccessMsg(null); }}><ShoppingCart size={14} /> {t('det.order')}</button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -794,6 +892,111 @@ export default function BuyerDashboard() {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* CART */}
+      {currentView === 'cart' && (
+        <div>
+          <h2 className="cart-heading"><ShoppingCart size={22} /> {t('cart.title')}</h2>
+          {placedOrders ? (
+            <div className="glass-panel" style={{ padding: '24px', maxWidth: '620px', margin: '0 auto' }}>
+              <div style={{ textAlign: 'center', marginBottom: '22px' }}>
+                <div className="cart-success-icon"><Check size={32} /></div>
+                <h3>{t('cart.placedOk')}</h3>
+                <p style={{ color: 'var(--text-muted)', marginTop: '6px' }}>{t('cart.placedHint')}</p>
+              </div>
+              {groupByShop(placedOrders).map(([shopId, list]) => {
+                const shop = shops.find(s => s.id === shopId);
+                const sum = list.reduce((s, o) => s + o.price * o.quantity, 0);
+                return (
+                  <div key={shopId} className="cart-shop-block">
+                    <div className="cart-shop-head">
+                      <span>{shop?.name || t('cart.shopOrder')}</span>
+                      <strong>{formatPrice(sum)} сом.</strong>
+                    </div>
+                    <div className="cart-shop-items">{list.map(o => `${o.part_name} ×${o.quantity}`).join(', ')}</div>
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '10px', flexWrap: 'wrap' }}>
+                      <button className="btn btn-accent btn-sm" onClick={() => sendShopOrders(shopId, list, 'wa')}><Phone size={14} /> {t('ord.sendWa')}</button>
+                      <button className="btn btn-secondary btn-sm" onClick={() => sendShopOrders(shopId, list, 'tg')}>{t('ord.sendTg')}</button>
+                    </div>
+                  </div>
+                );
+              })}
+              <div style={{ display: 'flex', gap: '8px', marginTop: '18px', flexWrap: 'wrap' }}>
+                <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => { setPlacedOrders(null); setCurrentView('orders'); }}>{t('cart.myOrders')}</button>
+                <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => { setPlacedOrders(null); setCurrentView('home'); }}>{t('cart.continue')}</button>
+              </div>
+            </div>
+          ) : cart.length === 0 ? (
+            <div className="glass-panel" style={{ padding: '46px 24px', textAlign: 'center', maxWidth: '480px', margin: '0 auto' }}>
+              <ShoppingCart size={42} style={{ color: 'var(--text-muted)', marginBottom: '14px' }} />
+              <h3>{t('cart.empty')}</h3>
+              <p style={{ color: 'var(--text-muted)', marginTop: '8px' }}>{t('cart.emptyHint')}</p>
+              <button className="btn btn-accent" style={{ marginTop: '18px' }} onClick={() => setCurrentView('home')}>{t('cart.continue')}</button>
+            </div>
+          ) : (
+            <div className="cart-grid">
+              <div className="cart-items glass-panel" style={{ padding: '14px 18px' }}>
+                {cart.map(item => (
+                  <div key={item.offerId} className="cart-item">
+                    <Thumb src={item.image} box={56} />
+                    <div className="cart-item-info">
+                      <div className="cart-item-name">{item.name}</div>
+                      <div className="cart-item-sub">{[item.brand, item.article].filter(Boolean).join(' · ')}</div>
+                      <div className="cart-item-price">{formatPrice(item.price)} сом.</div>
+                    </div>
+                    <div className="cart-qty">
+                      <button type="button" onClick={() => setCartQty(item.offerId, item.qty - 1)}>−</button>
+                      <span>{item.qty}</span>
+                      <button type="button" onClick={() => setCartQty(item.offerId, item.qty + 1)}>+</button>
+                    </div>
+                    <button type="button" className="cart-item-remove" title={t('cart.remove')} onClick={() => { haptic('light'); removeFromCart(item.offerId); }}><X size={16} /></button>
+                  </div>
+                ))}
+              </div>
+              <form className="cart-summary glass-panel" style={{ padding: '18px' }} onSubmit={placeCartOrder}>
+                <div className="cart-total-row"><span>{t('cart.total')}</span><strong>{formatPrice(cartTotal)} сом.</strong></div>
+                <div className="form-group"><label className="form-label">{t('ord.name')} *</label><input className="form-control" required value={checkoutName} onChange={(e) => setCheckoutName(e.target.value)} placeholder={t('ord.namePh')} /></div>
+                <div className="form-group"><label className="form-label">{t('ord.phone')} *</label><input type="tel" className="form-control" required value={checkoutPhone} onChange={(e) => setCheckoutPhone(e.target.value)} placeholder="+992 90 123-45-67" /></div>
+                <div className="form-group"><label className="form-label">{t('ord.comment')}</label><textarea className="form-control" rows="2" value={checkoutComment} onChange={(e) => setCheckoutComment(e.target.value)} placeholder={t('ord.commentPh')} /></div>
+                <button type="submit" className="btn btn-accent" style={{ width: '100%', padding: '13px' }}><ShoppingBag size={16} /> {t('cart.checkout')}</button>
+              </form>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* MY ORDERS */}
+      {currentView === 'orders' && (
+        <div>
+          <h2 className="cart-heading"><ShoppingBag size={22} /> {t('cart.myOrders')}</h2>
+          {myOrders.length === 0 ? (
+            <div className="glass-panel" style={{ padding: '46px 24px', textAlign: 'center', maxWidth: '480px', margin: '0 auto' }}>
+              <ShoppingBag size={42} style={{ color: 'var(--text-muted)', marginBottom: '14px' }} />
+              <p style={{ color: 'var(--text-muted)' }}>{t('cart.ordersEmpty')}</p>
+              <button className="btn btn-accent" style={{ marginTop: '18px' }} onClick={() => setCurrentView('home')}>{t('cart.continue')}</button>
+            </div>
+          ) : (
+            <div className="orders-list">
+              {myOrders.map(o => {
+                const shop = shops.find(s => s.id === o.shop_id);
+                return (
+                  <div key={o.id} className="glass-panel order-card">
+                    <div>
+                      <div className="order-card-name">{o.part_name}</div>
+                      <div className="order-card-sub">{[o.part_brand, shop?.name].filter(Boolean).join(' · ')}</div>
+                      <div className="order-card-meta">{t('ord.num')}: {o.id} · ×{o.quantity} · {formatPrice(o.price * o.quantity)} сом.</div>
+                    </div>
+                    <div className="order-card-side">
+                      <span className={`badge order-status order-status-${o.status}`}>{orderStatusLabel(o.status)}</span>
+                      <button className="btn btn-secondary btn-sm" onClick={() => repeatOrder(o)}><ArrowLeftRight size={14} /> {t('cart.repeat')}</button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 

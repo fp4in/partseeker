@@ -639,6 +639,17 @@ export const AppProvider = ({ children }) => {
   const [partnerAuthed, setPartnerAuthed] = useState(false);
   const [adminAuthed, setAdminAuthed] = useState(false);
 
+  // Buyer accounts (локальные, без сервера): список зарегистрированных +
+  // текущая сессия. Пароли хранятся хешем (НЕ криптостойко — это демо без
+  // бэкенда; при появлении сервера проверка переедет на него).
+  const [buyerAccounts, setBuyerAccounts] = useState(() => JSON.parse(localStorage.getItem('agg_buyer_accounts')) || []);
+  const [buyerUser, setBuyerUser] = useState(() => JSON.parse(localStorage.getItem('agg_buyer_user')) || null);
+  useEffect(() => { localStorage.setItem('agg_buyer_accounts', JSON.stringify(buyerAccounts)); }, [buyerAccounts]);
+  useEffect(() => {
+    if (buyerUser) localStorage.setItem('agg_buyer_user', JSON.stringify(buyerUser));
+    else localStorage.removeItem('agg_buyer_user');
+  }, [buyerUser]);
+
   // UI: theme + language
   const [theme, setTheme] = useState(() => localStorage.getItem('agg_theme') || 'dark');
   const [lang, setLang] = useState(() => localStorage.getItem('agg_lang') || 'ru');
@@ -687,6 +698,72 @@ export const AppProvider = ({ children }) => {
     setAdminAuthed(false);
     setCurrentRole('buyer');
     window.location.hash = '';
+  };
+
+  // --- Buyer auth (local, serverless) ---
+  // Лёгкий неблокирующий хеш (FNV-1a). НЕ для безопасности — лишь чтобы не
+  // держать пароль открытым текстом в localStorage. Замените серверной проверкой.
+  const hashPass = (s) => {
+    let h = 0x811c9dc5;
+    for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+    return (h >>> 0).toString(16);
+  };
+  const validEmail = (m) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(m);
+
+  const registerBuyer = ({ name, email, password }) => {
+    const mail = String(email || '').trim().toLowerCase();
+    if (!validEmail(mail)) return { success: false, error: 'badEmail' };
+    if (!password || password.length < 4) return { success: false, error: 'shortPass' };
+    if (buyerAccounts.some(a => a.email === mail)) return { success: false, error: 'exists' };
+    const acc = { name: String(name || '').trim() || mail.split('@')[0], email: mail, passHash: hashPass(password), createdAt: Date.now() };
+    setBuyerAccounts(prev => [...prev, acc]);
+    setBuyerUser({ name: acc.name, email: acc.email });
+    return { success: true };
+  };
+
+  const loginBuyer = (email, password) => {
+    const mail = String(email || '').trim().toLowerCase();
+    const acc = buyerAccounts.find(a => a.email === mail);
+    if (!acc) return { success: false, error: 'noUser' };
+    if (acc.passHash !== hashPass(password || '')) return { success: false, error: 'wrongPass' };
+    setBuyerUser({ name: acc.name, email: acc.email });
+    return { success: true };
+  };
+
+  const logoutBuyer = () => setBuyerUser(null);
+
+  // --- Корзина покупателя (локально, без сервера) ---
+  const [cart, setCart] = useState(() => JSON.parse(localStorage.getItem('agg_cart')) || []);
+  useEffect(() => { localStorage.setItem('agg_cart', JSON.stringify(cart)); }, [cart]);
+
+  const addToCart = (offer, part, qty = 1) => {
+    const q = Math.max(1, parseInt(qty, 10) || 1);
+    setCart(prev => {
+      const i = prev.findIndex(c => c.offerId === offer.id);
+      if (i >= 0) {
+        const next = [...prev];
+        next[i] = { ...next[i], qty: next[i].qty + q };
+        return next;
+      }
+      return [...prev, {
+        offerId: offer.id, partId: offer.part_id, shopId: offer.shop_id,
+        name: part?.name || offer.raw_name, brand: part?.brand || '',
+        article: part?.article || offer.raw_article, price: offer.price,
+        qty: q, image: part?.image_url || offer.image_url || null,
+      }];
+    });
+  };
+  const removeFromCart = (offerId) => setCart(prev => prev.filter(c => c.offerId !== offerId));
+  const setCartQty = (offerId, qty) => setCart(prev => prev.map(c =>
+    c.offerId === offerId ? { ...c, qty: Math.max(1, parseInt(qty, 10) || 1) } : c));
+  const clearCart = () => setCart([]);
+
+  // --- Просмотры карточек деталей (для статистики продавца) ---
+  const [partViews, setPartViews] = useState(() => JSON.parse(localStorage.getItem('agg_part_views')) || {});
+  useEffect(() => { localStorage.setItem('agg_part_views', JSON.stringify(partViews)); }, [partViews]);
+  const recordPartView = (partId) => {
+    if (!partId) return;
+    setPartViews(prev => ({ ...prev, [partId]: (prev[partId] || 0) + 1 }));
   };
 
   // Parsing & File upload logs
@@ -878,7 +955,7 @@ export const AppProvider = ({ children }) => {
   };
 
   // 2. Submit new order
-  const createOrder = (offerId, buyerName, buyerPhone, quantity, comment) => {
+  const createOrder = (offerId, buyerName, buyerPhone, quantity, comment, buyerEmail = null) => {
     const offer = offers.find(o => o.id === offerId);
     if (!offer) return { success: false, message: 'Предложение не найдено' };
 
@@ -889,6 +966,7 @@ export const AppProvider = ({ children }) => {
       id: `ord-${1000 + orders.length + 1}`,
       buyer_name: buyerName,
       buyer_phone: buyerPhone,
+      buyer_email: buyerEmail,
       shop_id: offer.shop_id,
       offer_id: offerId,
       part_name: part.name,
@@ -914,6 +992,42 @@ export const AppProvider = ({ children }) => {
     }));
 
     return { success: true, order: newOrder };
+  };
+
+  // Оформление всей корзины за раз. Создаёт по заказу на позицию (id —
+  // последовательные, без stale-проблемы цикла) одним setOrders, списывает
+  // остатки. items: [{ offerId, quantity, comment? }]. Возвращает массив заказов.
+  const createOrdersFromCart = (items, buyerName, buyerPhone, comment, buyerEmail = null) => {
+    const stamp = new Date().toISOString();
+    const created = [];
+    items.forEach((it, idx) => {
+      const offer = offers.find(o => o.id === it.offerId);
+      if (!offer) return;
+      const part = parts.find(p => p.id === offer.part_id);
+      if (!part) return;
+      created.push({
+        id: `ord-${1000 + orders.length + idx + 1}`,
+        buyer_name: buyerName, buyer_phone: buyerPhone, buyer_email: buyerEmail,
+        shop_id: offer.shop_id, offer_id: offer.id,
+        part_name: part.name, part_article: part.article, part_brand: part.brand,
+        price: offer.price, quantity: Math.max(1, parseInt(it.quantity, 10) || 1),
+        status: 'new', comment: comment || '',
+        created_at: stamp, updated_at: stamp,
+      });
+    });
+    if (!created.length) return { success: false, orders: [] };
+    setOrders(prev => [...created, ...prev]);
+    // Списываем остатки разом
+    const qtyByOffer = {};
+    created.forEach(o => { qtyByOffer[o.offer_id] = (qtyByOffer[o.offer_id] || 0) + o.quantity; });
+    setOffers(prev => prev.map(o => {
+      if (qtyByOffer[o.id]) {
+        const newQty = Math.max(0, o.quantity - qtyByOffer[o.id]);
+        return { ...o, quantity: newQty, is_available: newQty > 0 };
+      }
+      return o;
+    }));
+    return { success: true, orders: created };
   };
 
   // 3. Shop Partner actions
@@ -1084,7 +1198,7 @@ export const AppProvider = ({ children }) => {
           article: rawArticle.toUpperCase(),
           brand: brandClean,
           name: String(row.name).trim(),
-          category_id: row.category_id || 'cat-filters',
+          category_id: row.category_id || 'cat-maintenance',
           description: `Создано автоматически при загрузке прайс-листа из файла ${filename}.`,
           image_url: 'https://images.unsplash.com/photo-1552656967-7a0991a13906?w=400&auto=format&fit=crop&q=60',
           oem_numbers: [],
@@ -1162,6 +1276,76 @@ export const AppProvider = ({ children }) => {
     };
   };
 
+  // Ручное добавление одного товара продавцом с ВЫБОРОМ КАТЕГОРИИ.
+  // Если карточка детали с таким артикулом+брендом уже есть — привязываем оффер
+  // к ней; иначе создаём новую карточку в выбранной категории. Если у магазина
+  // уже есть оффер на эту деталь — обновляем цену/наличие.
+  const addOfferManual = ({ shopId, category_id, article, brand, name, price, quantity, delivery_days, make, model }) => {
+    if (!shopId) return { success: false, error: 'Магазин не выбран' };
+    if (!article || !brand || !name) return { success: false, error: 'Заполните артикул, бренд и название' };
+    const pr = parseFloat(price);
+    const qty = parseInt(quantity, 10);
+    if (isNaN(pr) || pr < 0) return { success: false, error: 'Некорректная цена' };
+    if (isNaN(qty) || qty < 0) return { success: false, error: 'Некорректное количество' };
+
+    const shop = shops.find(s => s.id === shopId);
+    const plan = plans.find(p => p.id === shop?.subscription_plan);
+    const limit = plan ? plan.max_offers : 100;
+    const shopOfferCount = offers.filter(o => o.shop_id === shopId).length;
+
+    const normArt = normalizeArticle(String(article));
+    const brandClean = String(brand).trim();
+
+    let part = parts.find(p => normalizeArticle(p.article) === normArt && p.brand.toLowerCase() === brandClean.toLowerCase());
+    let newPart = null;
+    if (!part) {
+      newPart = {
+        id: `part-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+        article: String(article).toUpperCase(),
+        brand: brandClean,
+        name: String(name).trim(),
+        category_id: category_id || 'cat-maintenance',
+        description: 'Добавлено вручную продавцом.',
+        image_url: catImg(category_id || 'cat-maintenance'),
+        oem_numbers: [],
+        cross_numbers: [],
+        applicable_vehicles: make ? [{ make, model: model || '', year_from: 2010, year_to: null, engine: '' }] : [],
+        is_verified: false,
+      };
+      part = newPart;
+    }
+
+    const existing = offers.find(o => o.shop_id === shopId && o.part_id === part.id);
+    if (!existing && shopOfferCount >= limit) {
+      return { success: false, error: `Достигнут лимит тарифа (${limit} товаров).` };
+    }
+
+    if (newPart) setParts(prev => [...prev, newPart]);
+
+    if (existing) {
+      setOffers(prev => prev.map(o => o.id === existing.id
+        ? { ...o, price: pr, quantity: qty, is_available: qty > 0, delivery_days: parseInt(delivery_days, 10) || 0, updated_at: new Date().toISOString() }
+        : o));
+    } else {
+      const newOffer = {
+        id: `off-${shopId}-${normArt}-${Date.now()}`,
+        shop_id: shopId,
+        part_id: part.id,
+        raw_article: String(article).toUpperCase(),
+        raw_name: String(name).trim(),
+        price: pr,
+        currency: 'TJS',
+        quantity: qty,
+        is_available: qty > 0,
+        delivery_days: parseInt(delivery_days, 10) || 0,
+        updated_at: new Date().toISOString(),
+        source_file: 'Добавлено вручную',
+      };
+      setOffers(prev => [...prev, newOffer]);
+    }
+    return { success: true, updated: !!existing, createdPart: !!newPart };
+  };
+
   return (
     <AppContext.Provider value={{
       users,
@@ -1196,6 +1380,22 @@ export const AppProvider = ({ children }) => {
       loginAdmin,
       logout,
       enterPartnerRegistration,
+      // buyer auth (local)
+      buyerUser,
+      registerBuyer,
+      loginBuyer,
+      logoutBuyer,
+      // cart (local)
+      cart,
+      addToCart,
+      removeFromCart,
+      setCartQty,
+      clearCart,
+      createOrdersFromCart,
+      // views + manual offer (partner)
+      partViews,
+      recordPartView,
+      addOfferManual,
       resetDatabase,
       searchParts,
       getPartDetails,
